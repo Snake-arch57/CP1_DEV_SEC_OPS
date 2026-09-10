@@ -484,61 +484,30 @@ Para cada uma, anotar no documento de pesquisa (seção 6e):
 
 ---
 
-## Anexo — Declaração de uso de IA (`USO-DE-IA.md`)
+## Anexo — Declaração de uso de IA
 
-> Este bloco deve ser versionado como arquivo separado `USO-DE-IA.md` na
-> raiz do repositório, conforme exige a seção 10 do enunciado. Reproduzido
-> aqui como referência de conteúdo mínimo.
+A declaração exigida pela **seção 10** do enunciado ("uso de IA generativa é
+permitido e incentivado, desde que declarado em um anexo `USO-DE-IA.md`
+indicando o que foi gerado e como foi validado") está versionada como arquivo
+separado na raiz do repositório:
 
-```markdown
-# Declaração de Uso de IA Generativa — Grupo 1
+**[`USO-DE-IA.md`](USO-DE-IA.md)**
 
-## Ferramenta de IA utilizada
-Claude (Anthropic), via Claude Code — apoio à redação, estruturação e
-revisão de documentação técnica.
+O conteúdo **não é reproduzido aqui de propósito** — é um documento vivo, com
+checkboxes que vão sendo marcados conforme as validações acontecem. Manter uma
+cópia neste arquivo garantiria que as duas versões divergissem.
 
-## O que foi gerado com apoio de IA
-- Estrutura inicial do LAB.md (esqueleto de seções seguindo o template do
-  Anexo A do enunciado)
-- Rascunho dos comandos de exemplo do OpenGrep e do Nikto
-- Redação inicial da tabela de troubleshooting
-- Rascunho do workflow `security-gate.yml`: separação em jobs por ferramenta,
-  filtros `jq` e lógica de decisão do gate
-- Revisão de conformidade do LAB.md contra o enunciado do Check Point 01
-  (checagem requisito a requisito da seção 5.3 e da rubrica da seção 9)
+Ao marcar um item como validado no `USO-DE-IA.md`, confiram se o `LAB.md`
+correspondente já foi atualizado com o output real — os dois andam juntos:
 
-## O que foi validado manualmente pelo grupo
-- Todos os comandos foram executados de fato contra o DVWA local antes da
-  entrega; outputs reais substituíram os exemplos gerados
-- Nomes e tags das imagens Docker conferidos com `docker pull` real. A IA
-  havia sugerido `returntocorp/opengrep`, que é a org antiga do Semgrep e não
-  do OpenGrep — erro identificado na revisão e corrigido após verificação
-- Rulesets (`p/php`, `p/owasp-top-ten`) e rule IDs conferidos contra a saída
-  real do OpenGrep, não contra a documentação do Semgrep
-- Filtros `jq` do gate testados localmente contra os arquivos SARIF e JSON
-  realmente gerados, antes de confiar no CI
-- Os achados da tabela de análise (Anexo "3 achados") são os observados na
-  execução do grupo, não os sugeridos pela IA
-- Conferência técnica de que o CWE-89 está corretamente associado ao
-  padrão de SQL Injection encontrado
-- Build vermelho e build verde reproduzidos de fato no GitHub Actions
-
-## O que NÃO foi gerado por IA
-- Vídeo de plano B
-- Execução ao vivo do pipeline (build vermelho/verde)
-- Escolha das 2 ferramentas do laboratório
-- Definição do mapeamento de severidade (ERROR→HIGH e a lista `NIKTO_HIGH`):
-  o critério é decisão técnica do grupo; a IA apenas o formatou em tabela
-- Perguntas de verificação definidas para a turma
-- Medições de tempo de execução e taxa de falso positivo do documento
-
-## Trechos de terceiros citados (seção 10 — citação obrigatória)
-- Template do `LAB.md`: Anexo A do enunciado do Check Point 01
-- Comandos de instalação e flags: documentação oficial de cada ferramenta,
-  referenciadas na bibliografia do documento de pesquisa
-- Alvos vulneráveis (DVWA, TerraGoat, NodeGoat): projetos OWASP / Bridgecrew,
-  referenciados no documento
-```
+| Ao validar em `USO-DE-IA.md` (seção 4.2) | Atualizar no `LAB.md` |
+|---|---|
+| Execução real das ferramentas | Blocos "Resultado esperado" dos passos 2 e 4 |
+| Nome/tag reais das imagens | Comandos `docker pull` do passo 0 |
+| Rulesets e rule IDs do OpenGrep | Comando e output do passo 2 |
+| Filtros `jq` testados | Job `security-gate` do passo 5 |
+| Build vermelho e verde | Passo 5 + `evidencias/` |
+| Achados reais observados | Anexo "Análise dos 3 achados" |
 
 ---
 

@@ -19,6 +19,52 @@ Duração estimada: 12 minutos (bloco 3 da divisão de tempo do enunciado)
 
 ---
 
+## ⚠️ Alvo e escopo — leia antes do passo 0
+
+**Alvo deste laboratório: DVWA — Damn Vulnerable Web Application (PHP)**,
+imagem `vulnerables/web-dvwa`. Consta na lista de **alvos vulneráveis
+autorizados** da seção 7 do enunciado.
+
+O DVWA é uma aplicação **deliberadamente vulnerável**. Ao seguir este roteiro
+você sobe, na sua própria máquina, uma aplicação projetada para ser invadida —
+com credenciais padrão (`admin` / `password`) e Security Level em **Low**. Isso
+é intencional: é o que faz as ferramentas encontrarem achados reais, conforme
+o requisito 4 da seção 5.3. Mas exige cuidado.
+
+### Regras de escopo deste laboratório
+
+- **Tudo roda em Docker local**, na rede interna do `docker-compose`.
+- **A porta 8081 fica em `localhost`.** Não publiquem na rede da instituição,
+  não rodem em Wi-Fi público e não exponham à internet.
+- **Nenhum passo varre host de terceiros.** O Nikto aponta para
+  `http://dvwa:80`, nome resolvido apenas dentro da rede do compose.
+- **Ao terminar, derrubem o ambiente:** `docker compose down -v` (passo 7).
+  Não deixem o DVWA rodando depois da aula.
+
+### Alvos usados neste repositório — todos da seção 7
+
+| Alvo | Categoria | Onde é usado |
+|---|---|---|
+| DVWA (PHP) | SAST + DAST | Laboratório ao vivo, passos 1 a 5 |
+| TerraGoat (Terraform) | IaC | Apêndice B (execução offline) |
+| OWASP NodeGoat (Node.js) | SCA | Apêndice B (execução offline) |
+
+### Por que a regra é rígida
+
+A seção 7 do enunciado é a única com penalidade máxima:
+
+> "É terminantemente proibido executar DAST, fuzzing ou qualquer varredura
+> ativa contra sistemas de terceiros, sites públicos, ambientes da empresa onde
+> você trabalha, ou qualquer alvo fora da lista acima. Varredura sem
+> autorização é crime no Brasil (Lei 12.737/2012 e Art. 154-A do Código Penal).
+> Trabalho que apresente evidência de varredura em alvo não autorizado recebe
+> **nota zero** e o caso é encaminhado à coordenação."
+
+Vale para quem apresenta **e** para quem assiste: apontar o Nikto para
+qualquer coisa que não seja o container local está fora do escopo autorizado.
+
+---
+
 ## Ferramentas do Grupo 1 (as 4 confirmadas no enunciado)
 
 | Categoria | Ferramenta | No lab ao vivo? | Evidência versionada |

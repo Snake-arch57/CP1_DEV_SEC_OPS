@@ -1,3 +1,10 @@
+# Nome do projeto fixo. Sem isso o Compose o deriva do nome do diretorio, e
+# renomear a pasta faz ele tratar os containers existentes como de outro
+# projeto -- nao consegue reutilizar o `container_name: dvwa` e falha com
+# "container name is already in use". Foi o que quebrou o deploy quando
+# /opt/checkpoint01-grupo1 virou /opt/CP1_DEV_SEC_OPS.
+name: cp1
+
 services:
   dvwa:
     image: vulnerables/web-dvwa:latest

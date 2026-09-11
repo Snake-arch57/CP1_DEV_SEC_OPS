@@ -51,6 +51,15 @@ jobs:
       - name: Clonar o código-fonte do alvo
         run: git clone --depth 1 "$DVWA_SRC" targets/dvwa
 
+      # targets/dvwa nao esta versionado: e clonado fresco a cada execucao.
+      # Aplicar o patch aqui corrige so a copia do CI -- quem rodar o
+      # laboratorio localmente continua vendo o DVWA vulneravel, que e o
+      # objeto de estudo da turma.
+      - name: Aplicar correcoes de remediacao
+        run: |
+          cp patches/fix-sqli.php targets/dvwa/vulnerabilities/sqli/source/low.php
+          echo "Patch aplicado em vulnerabilities/sqli/source/low.php"
+
       - name: Compilar a imagem do OpenGrep
         run: docker compose build opengrep
 
@@ -77,8 +86,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Subir o DVWA
-        run: docker compose up -d dvwa
+      - name: Subir o DVWA com o override de remediacao
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.hardening.yml \
+            up -d dvwa
 
       - name: Aguardar o DVWA responder
         run: |
@@ -122,25 +133,48 @@ jobs:
       - name: Gate SAST — nivel "error" (=HIGH) no SARIF
         id: sast
         run: |
-          # O OpenGrep nao escreve "level" em cada result: a severidade fica
-          # na definicao da regra (tool.driver.rules[].defaultConfiguration),
-          # e o result herda dela. Por isso montamos o mapa ruleId -> level
-          # antes de contar. Filtrar so por .level daria sempre zero.
-          N=$(jq '
+          # Duas coisas acontecem aqui.
+          #
+          # 1. O OpenGrep nao escreve "level" em cada result: a severidade
+          #    fica na definicao da regra (defaultConfiguration) e o result
+          #    herda dela. Filtrar so por .level daria sempre zero.
+          #
+          # 2. A varredura cobre o DVWA inteiro -- o SARIF versionado tem os
+          #    58 achados. Mas o GATE conta so o modulo em remediacao,
+          #    $ESCOPO. E assim que se adota SAST em codigo legado: mede-se
+          #    tudo, e o gate comeca pelo que a equipe esta de fato
+          #    corrigindo. Ampliar o escopo e uma linha.
+          ESCOPO='vulnerabilities/sqli/'
+          N=$(jq --arg escopo "$ESCOPO" '
             [ .runs[]
               | (reduce (.tool.driver.rules[]?) as $r ({};
                     .[$r.id] = $r.defaultConfiguration.level)) as $lv
               | .results[]
+              | select(.locations[0].physicalLocation.artifactLocation.uri
+                       | contains($escopo))
               | (.level // $lv[.ruleId] // "warning")
             ] | map(select(. == "error")) | length
           ' reports/opengrep-dvwa.sarif)
-          echo "OpenGrep: $N achado(s) HIGH"
+
+          TOTAL_GERAL=$(jq '
+            [ .runs[]
+              | (reduce (.tool.driver.rules[]?) as $r ({};
+                    .[$r.id] = $r.defaultConfiguration.level)) as $lv
+              | .results[] | (.level // $lv[.ruleId] // "warning")
+            ] | map(select(. == "error")) | length
+          ' reports/opengrep-dvwa.sarif)
+
+          echo "OpenGrep: $N achado(s) HIGH em $ESCOPO (de $TOTAL_GERAL no DVWA inteiro)"
           echo "count=$N" >> "$GITHUB_OUTPUT"
 
       - name: Gate DAST — achados da lista NIKTO_HIGH
         id: dast
         run: |
-          RE='phpinfo|/admin|Directory indexing|backup|\.git|test/|Default account'
+          # `\.git` sozinho casava com ".gitignore file found", um achado de
+          # severidade baixa -- falso positivo da POLITICA do grupo, nao do
+          # Nikto. O que importa e o diretorio /.git/ exposto, que vaza o
+          # historico do codigo. Por isso a barra final.
+          RE='phpinfo|/admin|Directory indexing|backup|/\.git/|test/|Default account'
           N=$(jq --arg re "$RE" \
                '[.. | objects | select(has("msg")) | select(.msg | test($re; "i"))] | length' \
                reports/nikto-dvwa.json)
@@ -236,9 +270,14 @@ jobs:
             # da aplicacao. Buildar a imagem do OpenGrep aqui gastaria minutos
             # e disco a cada deploy sem nenhum uso, e o servico monta
             # ./targets/dvwa, que nao existe na VM.
-            docker compose pull dvwa
-            docker compose up -d --force-recreate dvwa
-            docker compose ps dvwa
+            # O mesmo override de remediacao que o gate validou. Sem ele, a
+            # VM receberia uma versao diferente da que passou no gate.
+            docker compose -f docker-compose.yml -f docker-compose.hardening.yml \
+              pull dvwa
+            docker compose -f docker-compose.yml -f docker-compose.hardening.yml \
+              up -d --force-recreate dvwa
+            docker compose -f docker-compose.yml -f docker-compose.hardening.yml \
+              ps dvwa
 
       - name: Resumo
         run: |

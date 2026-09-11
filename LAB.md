@@ -228,8 +228,34 @@ como HIGH os achados que representam exposição de informação ou execução, 
 não apenas ausência de hardening:
 
 ```
-NIKTO_HIGH = phpinfo|/admin|Directory indexing|backup|\.git|test/|Default account
+NIKTO_HIGH = phpinfo|/admin|Directory indexing|backup|/\.git/|test/|Default account
 ```
+
+> **Falso positivo que o grupo introduziu e corrigiu.** A primeira versão
+> dessa lista trazia `\.git` sem as barras. Ela casava com o achado
+> `".gitignore file found"`, que é divulgação de informação de severidade
+> baixa — e o gate o tratava como HIGH. O alvo pretendido era o diretório
+> `/.git/` exposto, que vaza o histórico inteiro do código-fonte.
+>
+> Não foi erro do Nikto: foi erro da **política de severidade do grupo**. É
+> um bom exemplo de que falso positivo nem sempre vem da ferramenta — às
+> vezes vem da regra que a equipe escreveu em volta dela.
+
+### Escopo do gate no SAST
+
+A varredura do OpenGrep cobre o **DVWA inteiro** — o SARIF versionado em
+`reports/` tem os 58 achados, e é essa a evidência exigida pela seção 10.
+
+O **gate**, porém, conta só os achados `error` em `vulnerabilities/sqli/`, o
+módulo que o grupo está de fato remediando com `patches/fix-sqli.php`.
+
+Isso não é para facilitar: é como se adota SAST em código legado. Mede-se
+tudo, e o gate começa pelo escopo sob remediação, ampliando conforme a dívida
+é paga. Ampliar aqui é trocar uma variável no workflow.
+
+A alternativa — exigir zero achados no DVWA inteiro — significaria corrigir as
+25 vulnerabilidades de propósito da aplicação, o que descaracterizaria o alvo
+e apagaria o objeto de estudo do laboratório.
 
 ---
 

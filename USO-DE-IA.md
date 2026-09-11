@@ -27,6 +27,11 @@ até o momento.
   filtros `jq` e lógica de decisão do gate
 - Revisão de conformidade do `LAB.md` contra o enunciado do Check Point 01
   (checagem requisito a requisito da seção 5.3 e da rubrica da seção 9)
+- Rascunho do `README.md`, do `DEPLOY.md` e do `patches/fix-sqli.php`
+- Diagnóstico dos quatro erros listados em 4.1, a partir dos logs de execução
+  e dos relatórios reais
+- Redação das três análises de achado do `LAB.md`, a partir dos dados das
+  execuções — **pendente de revisão e reescrita pelo grupo** (ver 4.2)
 
 ## 3. O que NÃO foi gerado por IA
 
@@ -64,29 +69,57 @@ gerado sem verificação"*. Esta seção registra o estado real da verificação
       diferentes** (SAST + DAST), conforme requisito da seção 5.3
 - [x] Conferência de que o alvo (DVWA) consta na lista de alvos autorizados da
       seção 7
+- [x] **Ferramentas executadas de fato.** OpenGrep e Nikto rodaram no pipeline
+      em execuções sucessivas; os relatórios reais estão versionados em
+      `reports/` e os blocos "Resultado esperado" dos passos 2 e 4 do `LAB.md`
+      foram substituídos pelos outputs observados
+- [x] **Rulesets confirmados.** `p/php` e `p/owasp-top-ten` resolvem no
+      OpenGrep e produziram 58 achados (25 `error`, 33 `warning`) no DVWA. A
+      regra `php.lang.security.injection.tainted-sql-string` existe e aponta a
+      linha correta
+- [x] **Imagens conferidas.** `vulnerables/web-dvwa` e `hysnsec/nikto` baixam
+      com `docker pull`; o OpenGrep é compilado pelo `Dockerfile` do repo
+- [x] **Build vermelho e build verde reproduzidos** no GitHub Actions, com o
+      deploy na VM Azure bloqueado no vermelho e executado no verde
+- [x] **Segundo erro da IA, encontrado ao conferir o log:** o filtro `jq` do
+      gate usava `select(.level=="error")` nos resultados do SARIF. Nenhum
+      resultado do OpenGrep carrega esse campo — a severidade fica na definição
+      da regra e o resultado herda. O gate reportava `OpenGrep: 0` com 58
+      achados no relatório, e ficava vermelho só por causa do Nikto, o que
+      mascarava o problema. Corrigido montando o mapa `ruleId → level`;
+      validado contra o SARIF real: 25 `error`
+- [x] **Terceiro erro, de orquestração:** o job do Nikto subia o DVWA com o
+      override de hardening mas rodava `docker compose run nikto` sem ele.
+      Como `nikto` tem `depends_on: dvwa`, o Compose recriava o DVWA sem o
+      volume, desfazendo a remediação antes do scan. A correção existia e
+      estava certa — testada fora do CI —, mas era desfeita pela orquestração
+- [x] **Quarto erro, de estado implícito:** renomear o diretório de deploy na
+      VM quebrou o `docker compose up` com `container name already in use`. O
+      nome do projeto Compose vinha do nome da pasta. Corrigido com `name: cp1`
+      no `docker-compose.yml`
+- [x] **Falso positivo da própria política do grupo:** o padrão `\.git` da
+      lista `NIKTO_HIGH` casava com `.gitignore`. O alvo pretendido era o
+      diretório `/.git/` exposto. Verdadeiro positivo da ferramenta, falso
+      positivo da regra que o grupo escreveu em volta dela. Analisado no
+      `LAB.md`, achado nº 3
 
 ### 4.2 Pendente — a executar antes da entrega
 
-- [x] **Nikto executado** contra o DVWA local; output real versionado em
-      `reports/nikto-dvwa.txt` e `reports/nikto-dvwa.json`, e o bloco "Resultado
-      esperado" do passo 4 do `LAB.md` foi substituido pelo output real
-- [ ] Executar os comandos restantes do `LAB.md` (OpenGrep) e **substituir
-      os blocos de output de exemplo pelos outputs reais**
-- [ ] Confirmar que `hysnsec/nikto` e `vulnerables/web-dvwa` baixam com
-      `docker pull`, e que `docker compose build opengrep` conclui sem erro em
-      máquina limpa
-- [ ] Conferir os rulesets (`p/php`, `p/owasp-top-ten`) e as rule IDs contra a
-      saída real do OpenGrep — as citadas hoje vêm do registry do Semgrep e
-      podem não existir no OpenGrep
-- [ ] Testar os filtros `jq` do gate contra os arquivos SARIF e JSON realmente
-      gerados, antes de confiar no CI
-- [ ] Reproduzir o build vermelho e o build verde no GitHub Actions
-- [ ] Preencher as linhas 2 e 3 da análise de achados com achados **observados
-      pelo grupo**, não sugeridos pela IA
-- [ ] Confirmar que o CWE-89 está corretamente associado ao padrão de SQL
-      Injection efetivamente encontrado
+- [ ] **Reescrever as três análises de achado do `LAB.md` com as palavras do
+      grupo.** Os dados são reais (vieram dos relatórios em `reports/`), mas a
+      redação saiu da IA. O enunciado avalia análise crítica **própria**, e
+      qualquer integrante pode ser questionado sobre qualquer parte na
+      apresentação — este é o item mais importante desta lista
+- [ ] Confirmar de forma independente que o CWE-89 é o correto para o padrão
+      encontrado, consultando a base MITRE e não a sugestão da IA
+- [ ] Executar o `LAB.md` inteiro **em máquina que não é a de nenhum
+      integrante** — exigência explícita do enunciado, ainda não cumprida
+- [ ] Rodar Snyk e Terrascan (Apêndice B) e versionar os relatórios; sem isso
+      não há evidência para duas das quatro ferramentas
 - [ ] Medir tempo de execução e taxa de falso positivo de cada uma das 4
       ferramentas, para a seção 6(e) do documento
+- [ ] Capturar os prints de build vermelho e verde para `evidencias/`
+- [ ] Gravar o vídeo de plano B (5 a 8 minutos)
 
 ## 5. Trechos de terceiros citados (seção 10 — citação obrigatória)
 

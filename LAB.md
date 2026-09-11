@@ -432,25 +432,94 @@ docker compose down -v
 | Pipeline não quebra mesmo com ERROR no SARIF | Filtro `jq` do job `security-gate` não bate com o schema | Rodar o `jq` localmente contra `reports/opengrep-dvwa.sarif` |
 | Job `dast-nikto` falha por timeout | DVWA ainda inicializando o MySQL | Aumentar o loop de espera do step "Aguardar o DVWA responder" |
 
+### Problemas que o grupo encontrou de fato
+
+Os quatro abaixo aconteceram durante a montagem do laboratório. Estão
+registrados com causa e correção porque foram os que mais custaram tempo — e
+porque **nenhum deles é achado de ferramenta**. São falhas de orquestração e
+de operação, invisíveis para SAST, SCA, IaC e DAST.
+
+| Sintoma | Causa | Correção |
+|---|---|---|
+| Gate reporta `OpenGrep: 0` com 58 achados no SARIF | O OpenGrep não escreve `level` em cada `result`: a severidade fica em `tool.driver.rules[].defaultConfiguration.level` e o resultado herda dela | Montar o mapa `ruleId → level` antes de contar (ver passo 5) |
+| Hardening aplicado, mas o Nikto continua reportando `Directory indexing` | `docker compose run nikto` rodou sem o `-f docker-compose.hardening.yml`. Como `nikto` tem `depends_on: dvwa`, o Compose recriou o DVWA **sem** o volume, desfazendo a remediação segundos antes do scan | Usar a mesma lista de `-f` em **todas** as invocações do job (variável `$COMPOSE`) |
+| Deploy falha com `container name "/dvwa" is already in use` | O Compose deriva o nome do projeto do diretório. Renomear a pasta na VM criou um projeto novo, que não pode reutilizar um `container_name` pertencente a outro | `name: cp1` no topo do `docker-compose.yml`, desacoplando o projeto do caminho |
+| Perda total de acesso SSH à VM | `>` em vez de `>>` ao escrever em `authorized_keys`, sobrescrevendo a única chave autorizada | Recuperação pelo console serial do portal Azure. Sempre conferir com `wc -l` que o arquivo **cresceu** |
+
 ---
 
 ## Anexo — Análise dos 3 achados (verdadeiro/falso positivo)
 
-Vale **8 pontos** na rubrica. As três linhas precisam ser preenchidas com
-achados **reais** da execução do grupo.
+Vale **8 pontos** na rubrica. Os três achados abaixo saíram das execuções
+reais do grupo, versionadas em `reports/`.
 
-| # | Ferramenta | Achado | Veredito | CWE | Justificativa técnica | Correção proposta |
-|---|---|---|---|---|---|---|
-| 1 | OpenGrep | SQL Injection em `sqli/source/low.php` | Verdadeiro positivo | CWE-89 | `$id` concatenado direto na query, sem prepared statement | Migrar para PDO com bind de parâmetros |
-| 2 | OpenGrep | *(preencher com achado real da execução de vocês)* | | | | |
-| 3 | Nikto | *(preencher com achado real da execução de vocês)* | | | | |
+| # | Ferramenta | Achado | Veredito | CWE |
+|---|---|---|---|---|
+| 1 | OpenGrep | SQL Injection em `vulnerabilities/sqli/source/low.php` | Verdadeiro positivo | CWE-89 |
+| 2 | Nikto | `Directory indexing found` em `/config/` | Verdadeiro positivo | CWE-548 |
+| 3 | Nikto | `.gitignore file found` classificado como HIGH | **Falso positivo da política do grupo** | CWE-527 |
 
-> As linhas 2 e 3 precisam ser preenchidas com os achados observados na
-> execução real do grupo — o enunciado exige análise crítica própria, não
-> genérica. Sugestão para a linha 3: os headers ausentes
-> (`X-Frame-Options` / `X-Content-Type-Options`) reportados pelo Nikto são
-> **verdadeiros positivos de baixa severidade** (CWE-1021 / CWE-693) — bom
-> exemplo para discutir que "verdadeiro positivo" não é sinônimo de "urgente".
+### 1 — SQL Injection (OpenGrep) · verdadeiro positivo
+
+**Evidência:** `reports/opengrep-dvwa.sarif`, regra
+`php.lang.security.injection.tainted-sql-string`, 2 ocorrências no mesmo
+arquivo, severidade `error`.
+
+**Justificativa:** `$id` vem de `$_REQUEST` e é concatenado diretamente na
+string da query. O dado do usuário é interpretado como SQL — `1' OR '1'='1`
+retorna a tabela inteira. A regra rastreia o fluxo da fonte (`$_REQUEST`) até
+o sink (a query), o que é *taint analysis*, não simples casamento de padrão.
+
+**Correção aplicada:** `patches/fix-sqli.php` — prepared statement com bind.
+O driver envia query e dados separadamente, então `$id` nunca é analisado
+como SQL. Não há sanitização nem escape: a diferença conceitual é que escapar
+tenta neutralizar a entrada, enquanto o prepared statement remove a
+possibilidade de a entrada virar código.
+
+**Verificação:** após o patch, o total de achados `error` caiu de 25 para 23,
+e o escopo `vulnerabilities/sqli/` foi a zero.
+
+### 2 — Directory indexing (Nikto) · verdadeiro positivo
+
+**Evidência:** `reports/nikto-dvwa.json` — 2 ocorrências, `/config/` e
+`/docs/`.
+
+**Justificativa:** o Apache serve a listagem do diretório quando não há
+index. O caso de `/config/` é o grave: é onde o DVWA guarda a configuração do
+banco. Repare que **isso não está no código PHP** — é configuração do servidor
+web. Nenhuma análise estática acusaria; só o DAST, batendo na aplicação em
+execução, encontra. É o contraste central do laboratório.
+
+**Correção aplicada:** `hardening/no-indexes.conf` com `Options -Indexes`,
+montado via `docker-compose.hardening.yml`.
+
+**Verificação:** `curl http://127.0.0.1:8081/config/` deixou de retornar a
+listagem, e o gate foi a zero.
+
+### 3 — `.gitignore` como HIGH · falso positivo da política do grupo
+
+**Evidência:** o gate reportava 3 achados HIGH quando o Nikto encontrava só 2
+problemas relevantes.
+
+**Justificativa:** o Nikto reportou corretamente `".gitignore file found"` —
+o arquivo existe mesmo e revela um pouco da estrutura de diretórios. O erro
+não foi da ferramenta: foi da **regra de severidade que o grupo escreveu em
+volta dela**. A lista `NIKTO_HIGH` continha o padrão `\.git`, pensado para
+pegar um diretório `/.git/` exposto — que vaza o histórico inteiro do
+código-fonte, coisa séria. Mas o padrão casava também com `.gitignore`, cuja
+exposição é de severidade baixa.
+
+Ou seja: **verdadeiro positivo da ferramenta, falso positivo da política**. É
+uma distinção que raramente aparece nos exemplos de manual, e ela importa —
+uma política mal calibrada produz ruído que leva a equipe a ignorar o gate.
+
+**Correção aplicada:** o padrão passou a exigir as barras (`/\.git/`).
+Validado contra o relatório real: 3 achados com a regex antiga, 2 com a nova.
+
+> **Antes de entregar:** confiram cada uma das três análises e reescrevam com
+> as palavras de vocês onde discordarem. O enunciado avalia análise crítica
+> **própria**, e qualquer integrante pode ser questionado sobre qualquer parte
+> na apresentação.
 
 ---
 
@@ -461,37 +530,60 @@ achados **reais** da execução do grupo.
 > tempo apertar nos 12 minutos, **corte esta parte** — ela não é avaliada e
 > adiciona risco de escopo (ver aviso abaixo).
 
-O job `deploy` roda **depois** do job `security-gate` e só é disparado se ele
-passar (`needs: security-gate`) — ou seja, o gate de severidade é o que decide
-se o deploy acontece.
+**Status: implementado e funcionando.** A configuração completa da VM, da
+chave dedicada ao CI e dos secrets está em [`DEPLOY.md`](DEPLOY.md). O job
+`deploy` está em [`.github/workflows/security-gate.yml`](.github/workflows/security-gate.yml)
+— não é reproduzido aqui para não divergir do arquivo real.
+
+O `deploy` só executa quando **três** condições valem ao mesmo tempo:
 
 ```yaml
-  deploy:
-    needs: security-gate
-    if: success()
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Deploy via SSH na VM Azure
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.AZURE_VM_HOST }}
-          username: ${{ secrets.AZURE_VM_USER }}
-          key: ${{ secrets.AZURE_VM_SSH_KEY }}
-          script: |
-            cd /opt/CP1_DEV_SEC_OPS
-            git pull origin main
-            docker compose pull
-            docker compose up -d --force-recreate
+if: github.event_name == 'push'              # não roda em pull_request
+    && github.ref == 'refs/heads/main'       # só a main
+    && needs.config-do-deploy.outputs.configurado == 'true'
+needs: [security-gate, config-do-deploy]     # gate verde
 ```
 
-Comando local equivalente, para teste manual antes de confiar só no CI:
+Consequência prática, observada: abrir um PR roda a guarda, o SAST, o DAST e
+o gate, mas o `deploy` **nem é agendado**. Vocês veem se o gate passaria antes
+de mandar para a `main`, sem nenhum risco de tocar a VM.
+
+### O que o deploy faz na VM
+
+Clona (ou atualiza com `git reset --hard origin/main`) em
+`/opt/CP1_DEV_SEC_OPS`, reconfere o bind `127.0.0.1` e sobe **apenas** o
+serviço `dvwa`, com o mesmo `docker-compose.hardening.yml` que o gate validou.
+
+O `reset --hard` é deliberado: descarta qualquer alteração feita à mão na VM.
+A máquina é descartável, e seu estado é sempre o commit da `main` — nunca algo
+editado localmente.
+
+> **Por que o mesmo override do gate:** sem ele, o gate validaria uma
+> configuração e a VM receberia outra. Validar A e publicar B é uma das formas
+> mais fáceis de um pipeline dar falsa segurança.
+
+### Conferir o que foi publicado
 
 ```bash
-ssh usuario@<ip-da-vm-azure>
+ssh -i ~/.ssh/<sua-chave> <usuario>@<ip-da-vm>
 cd /opt/CP1_DEV_SEC_OPS
-git pull origin main
-docker compose up -d --force-recreate
+git log -1 --oneline     # precisa bater com o commit da main
+docker compose ls        # projeto "cp1", com os dois arquivos de compose
+docker ps                # dvwa Up, 127.0.0.1:8081->80/tcp
+```
+
+O `git log -1` é a verificação que importa: se o hash bate com a `main`, está
+provado que foi exatamente aquele código que passou no gate e chegou ao
+servidor.
+
+### Acessar o DVWA na VM
+
+Ele escuta em `127.0.0.1`, então não abre pelo IP público. O túnel roda na
+**sua máquina**, não na VM:
+
+```bash
+ssh -i ~/.ssh/<sua-chave> -L 8081:127.0.0.1:8081 <usuario>@<ip-da-vm>
+# com a janela aberta, acesse http://localhost:8081
 ```
 
 **Cuidado operacional — risco de nota zero.** DVWA é uma aplicação

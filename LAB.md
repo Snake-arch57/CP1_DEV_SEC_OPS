@@ -353,8 +353,17 @@ jobs:
       - name: Gate SAST — ERROR (=HIGH) no SARIF do OpenGrep
         id: sast
         run: |
-          N=$(jq '[.runs[].results[] | select(.level=="error")] | length' \
-               reports/opengrep-dvwa.sarif)
+          # O OpenGrep nao escreve "level" em cada result: a severidade fica
+          # na definicao da regra, e o result herda dela. Filtrar so por
+          # .level daria sempre zero.
+          N=$(jq '
+            [ .runs[]
+              | (reduce (.tool.driver.rules[]?) as $r ({};
+                    .[$r.id] = $r.defaultConfiguration.level)) as $lv
+              | .results[]
+              | (.level // $lv[.ruleId] // "warning")
+            ] | map(select(. == "error")) | length
+          ' reports/opengrep-dvwa.sarif)
           echo "OpenGrep: $N achado(s) HIGH"
           echo "count=$N" >> "$GITHUB_OUTPUT"
 

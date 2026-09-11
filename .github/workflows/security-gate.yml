@@ -1,0 +1,237 @@
+name: security-gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Um deploy por vez. Se dois pushes entrarem juntos, o mais novo espera o
+# anterior terminar em vez de os dois mexerem na VM ao mesmo tempo.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DVWA_SRC: https://github.com/digininja/DVWA.git
+
+jobs:
+  # ------------------------------------------------------------------
+  # Guarda de escopo (seção 7 do enunciado)
+  # ------------------------------------------------------------------
+  # DVWA é deliberadamente vulnerável. Se alguém trocar o bind de
+  # 127.0.0.1 por 0.0.0.0, o deploy passaria a publicar uma aplicação
+  # invadível na internet. Isso falha o build ANTES de qualquer deploy.
+  guarda-de-escopo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verificar que o DVWA não é exposto publicamente
+        run: |
+          if grep -Eq '^\s*-\s*"?(0\.0\.0\.0:)?[0-9]+:80"?\s*$' docker-compose.yml; then
+            echo "::error::docker-compose.yml publica o DVWA em todas as interfaces."
+            echo "::error::Use o formato 127.0.0.1:<porta>:80 — ver secao 7 do enunciado."
+            exit 1
+          fi
+          grep -q '127.0.0.1:8081:80' docker-compose.yml \
+            || { echo "::error::Bind 127.0.0.1:8081:80 nao encontrado."; exit 1; }
+          echo "OK — DVWA restrito a localhost."
+
+  # ------------------------------------------------------------------
+  # SAST — OpenGrep sobre o código-fonte do DVWA
+  # ------------------------------------------------------------------
+  sast-opengrep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clonar o código-fonte do alvo
+        run: git clone --depth 1 "$DVWA_SRC" targets/dvwa
+
+      - name: Compilar a imagem do OpenGrep
+        run: docker compose build opengrep
+
+      - name: Rodar OpenGrep
+        run: |
+          mkdir -p reports
+          docker compose run --rm opengrep \
+            --config=p/php \
+            --config=p/owasp-top-ten \
+            --sarif --output=/reports/opengrep-dvwa.sarif \
+            /src || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: opengrep-sarif
+          path: reports/opengrep-dvwa.sarif
+          if-no-files-found: error
+
+  # ------------------------------------------------------------------
+  # DAST — Nikto contra o DVWA em execução
+  # ------------------------------------------------------------------
+  dast-nikto:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Subir o DVWA
+        run: docker compose up -d dvwa
+
+      - name: Aguardar o DVWA responder
+        run: |
+          for i in $(seq 1 40); do
+            curl -sf http://127.0.0.1:8081/ > /dev/null && exit 0
+            sleep 3
+          done
+          echo "::error::DVWA nao respondeu em 120s."
+          docker compose logs dvwa
+          exit 1
+
+      - name: Rodar Nikto
+        run: |
+          mkdir -p reports
+          docker compose run --rm nikto \
+            -h http://dvwa:80 \
+            -Format json -o /reports/nikto-dvwa.json || true
+
+      - name: Derrubar o ambiente
+        if: always()
+        run: docker compose down -v
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nikto-json
+          path: reports/nikto-dvwa.json
+          if-no-files-found: error
+
+  # ------------------------------------------------------------------
+  # Gate de severidade — requisito 5 da seção 5.3
+  # ------------------------------------------------------------------
+  security-gate:
+    needs: [sast-opengrep, dast-nikto, guarda-de-escopo]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: opengrep-sarif, path: reports }
+      - uses: actions/download-artifact@v4
+        with: { name: nikto-json, path: reports }
+
+      - name: Gate SAST — nivel "error" (=HIGH) no SARIF
+        id: sast
+        run: |
+          N=$(jq '[.runs[].results[] | select(.level=="error")] | length' \
+               reports/opengrep-dvwa.sarif)
+          echo "OpenGrep: $N achado(s) HIGH"
+          echo "count=$N" >> "$GITHUB_OUTPUT"
+
+      - name: Gate DAST — achados da lista NIKTO_HIGH
+        id: dast
+        run: |
+          RE='phpinfo|/admin|Directory indexing|backup|\.git|test/|Default account'
+          N=$(jq --arg re "$RE" \
+               '[.. | objects | select(has("msg")) | select(.msg | test($re; "i"))] | length' \
+               reports/nikto-dvwa.json)
+          echo "Nikto: $N achado(s) HIGH"
+          echo "count=$N" >> "$GITHUB_OUTPUT"
+
+      - name: Decisao do gate
+        env:
+          SAST_COUNT: ${{ steps.sast.outputs.count }}
+          DAST_COUNT: ${{ steps.dast.outputs.count }}
+        run: |
+          TOTAL=$(( SAST_COUNT + DAST_COUNT ))
+          echo "SAST=$SAST_COUNT  DAST=$DAST_COUNT  TOTAL=$TOTAL"
+          if [ "$TOTAL" -gt 0 ]; then
+            echo "::error::Gate REPROVADO — $TOTAL achado(s) de severidade HIGH. Deploy bloqueado."
+            exit 1
+          fi
+          echo "Gate APROVADO — nenhum achado HIGH."
+
+  # ------------------------------------------------------------------
+  # Os secrets do deploy existem? (o contexto `secrets` nao pode ser
+  # lido em `if:` de job, entao vira output deste job)
+  # ------------------------------------------------------------------
+  config-do-deploy:
+    needs: security-gate
+    runs-on: ubuntu-latest
+    outputs:
+      configurado: ${{ steps.check.outputs.configurado }}
+    steps:
+      - id: check
+        env:
+          HOST: ${{ secrets.AZURE_VM_HOST }}
+          USER: ${{ secrets.AZURE_VM_USER }}
+          KEY: ${{ secrets.AZURE_VM_SSH_KEY }}
+        run: |
+          if [ -n "$HOST" ] && [ -n "$USER" ] && [ -n "$KEY" ]; then
+            echo "configurado=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configurado=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Secrets do deploy ausentes — job de deploy sera pulado."
+          fi
+
+  # ------------------------------------------------------------------
+  # Deploy na VM Azure — so em push na main, e so com o gate verde
+  # ------------------------------------------------------------------
+  deploy:
+    needs: [security-gate, config-do-deploy]
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      needs.config-do-deploy.outputs.configurado == 'true'
+    runs-on: ubuntu-latest
+    environment: producao
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.AZURE_VM_HOST }}
+          username: ${{ secrets.AZURE_VM_USER }}
+          key: ${{ secrets.AZURE_VM_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            APP_DIR=/opt/checkpoint01-grupo1
+
+            # O diretorio precisa existir e pertencer ao usuario do deploy.
+            # Isso e feito uma unica vez, na preparacao da VM (ver DEPLOY.md),
+            # para que o workflow nao precise de sudo sem senha.
+            if [ ! -w "$APP_DIR" ]; then
+              echo "ERRO: $APP_DIR nao existe ou nao e gravavel por $(id -un)."
+              echo "Rode a preparacao da VM descrita em DEPLOY.md."
+              exit 1
+            fi
+
+            # Primeira execucao: clona. Demais: atualiza.
+            if [ ! -d "$APP_DIR/.git" ]; then
+              git clone https://github.com/Snake-arch57/CP1_DEV_SEC_OPS.git "$APP_DIR"
+            fi
+
+            cd "$APP_DIR"
+            git fetch --all
+            git reset --hard origin/main
+
+            # Mesma guarda de escopo, agora na VM: nao subir nada que
+            # publique o DVWA fora de localhost.
+            grep -q '127.0.0.1:8081:80' docker-compose.yml || {
+              echo "ERRO: docker-compose.yml exporia o DVWA publicamente."
+              exit 1
+            }
+
+            docker compose pull
+            docker compose build
+            docker compose up -d --force-recreate dvwa
+            docker compose ps
+
+      - name: Resumo
+        run: |
+          echo "### Deploy concluido na VM Azure" >> "$GITHUB_STEP_SUMMARY"
+          echo "Commit: \`${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "DVWA escuta em \`127.0.0.1:8081\` na VM — acesso so por tunel SSH:" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo 'ssh -L 8081:127.0.0.1:8081 usuario@<ip-da-vm>' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

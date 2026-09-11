@@ -69,10 +69,10 @@ qualquer coisa que não seja o container local está fora do escopo autorizado.
 
 | Categoria | Ferramenta | No lab ao vivo? | Evidência versionada |
 |---|---|---|---|
-| SAST | OpenGrep | Sim — Ferramenta A (passo 2) | `reports/opengrep-dvwa.sarif` |
-| SCA | Snyk Open Source | Não — execução offline | `reports/snyk-nodegoat.json` |
-| IaC | Terrascan | Não — execução offline | `reports/terrascan-terragoat.json` |
-| DAST | Nikto | Sim — Ferramenta B (passo 4) | `reports/nikto-dvwa.json` |
+| SAST | OpenGrep | Sim — Ferramenta A (passo 2) | ✅ `reports/opengrep-dvwa.sarif` |
+| SCA | Snyk Open Source | Não — execução offline | ⬜ **ainda não executado** |
+| IaC | Terrascan | Não — execução offline | ⬜ **ainda não executado** |
+| DAST | Nikto | Sim — Ferramenta B (passo 4) | ✅ `reports/nikto-dvwa.json` |
 
 O enunciado exige que o **documento de pesquisa** responda o roteiro da
 seção 6 (identificação, fundamento técnico, instalação, integração,

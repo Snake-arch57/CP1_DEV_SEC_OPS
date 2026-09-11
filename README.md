@@ -27,12 +27,12 @@ recebe nota zero no trabalho.
 
 ## As 4 ferramentas do grupo
 
-| Categoria | Ferramenta | No lab ao vivo | Relatório |
+| Categoria | Ferramenta | No lab ao vivo | Relatório versionado |
 |---|---|---|---|
-| SAST | OpenGrep | ✅ Ferramenta A | `reports/opengrep-dvwa.sarif` |
-| DAST | Nikto | ✅ Ferramenta B | `reports/nikto-dvwa.json` |
-| SCA | Snyk Open Source | execução offline | `reports/snyk-nodegoat.json` |
-| IaC | Terrascan | execução offline | `reports/terrascan-terragoat.json` |
+| SAST | OpenGrep | ✅ Ferramenta A | ✅ `reports/opengrep-dvwa.sarif` |
+| DAST | Nikto | ✅ Ferramenta B | ✅ `reports/nikto-dvwa.json` |
+| SCA | Snyk Open Source | execução offline | ⬜ **ainda não executado** |
+| IaC | Terrascan | execução offline | ⬜ **ainda não executado** |
 
 As 2 do laboratório conduzido são de **categorias diferentes** (SAST + DAST),
 conforme exige a seção 5.3.

@@ -228,8 +228,34 @@ como HIGH os achados que representam exposição de informação ou execução, 
 não apenas ausência de hardening:
 
 ```
-NIKTO_HIGH = phpinfo|/admin|Directory indexing|backup|\.git|test/|Default account
+NIKTO_HIGH = phpinfo|/admin|Directory indexing|backup|/\.git/|test/|Default account
 ```
+
+> **Falso positivo que o grupo introduziu e corrigiu.** A primeira versão
+> dessa lista trazia `\.git` sem as barras. Ela casava com o achado
+> `".gitignore file found"`, que é divulgação de informação de severidade
+> baixa — e o gate o tratava como HIGH. O alvo pretendido era o diretório
+> `/.git/` exposto, que vaza o histórico inteiro do código-fonte.
+>
+> Não foi erro do Nikto: foi erro da **política de severidade do grupo**. É
+> um bom exemplo de que falso positivo nem sempre vem da ferramenta — às
+> vezes vem da regra que a equipe escreveu em volta dela.
+
+### Escopo do gate no SAST
+
+A varredura do OpenGrep cobre o **DVWA inteiro** — o SARIF versionado em
+`reports/` tem os 58 achados, e é essa a evidência exigida pela seção 10.
+
+O **gate**, porém, conta só os achados `error` em `vulnerabilities/sqli/`, o
+módulo que o grupo está de fato remediando com `patches/fix-sqli.php`.
+
+Isso não é para facilitar: é como se adota SAST em código legado. Mede-se
+tudo, e o gate começa pelo escopo sob remediação, ampliando conforme a dívida
+é paga. Ampliar aqui é trocar uma variável no workflow.
+
+A alternativa — exigir zero achados no DVWA inteiro — significaria corrigir as
+25 vulnerabilidades de propósito da aplicação, o que descaracterizaria o alvo
+e apagaria o objeto de estudo do laboratório.
 
 ---
 
@@ -287,111 +313,67 @@ do Apache, não no código.
 ## 5. Rodar o pipeline e ver o gate quebrar
 
 O requisito 5 da seção 5.3 exige o pipeline com **as 2 ferramentas
-integradas** e um gate de severidade. O `security-gate.yml` tem três jobs: um
-por ferramenta, e um terceiro que consolida os dois relatórios e decide.
+integradas** e um gate de severidade.
 
-```yaml
-name: security-gate
+O arquivo completo é **[`.github/workflows/security-gate.yml`](.github/workflows/security-gate.yml)**
+— leiam de lá, não desta seção. O que segue é só a lógica de decisão, que é o
+ponto didático; duplicar o YAML inteiro aqui garantiria que as duas versões
+divergissem.
 
-on:
-  push:
-    branches: [main]
-  pull_request:
+### Os seis jobs
 
-jobs:
-  sast-opengrep:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Rodar OpenGrep (SAST)
-        run: |
-          mkdir -p reports
-          docker run --rm -v "$PWD:/src" -v "$PWD/reports:/reports" \
-            opengrep/opengrep:latest \
-            --config=p/php --config=p/owasp-top-ten \
-            --sarif --output=/reports/opengrep-dvwa.sarif /src
-      - uses: actions/upload-artifact@v4
-        with:
-          name: opengrep-sarif
-          path: reports/opengrep-dvwa.sarif
-
-  dast-nikto:
-    runs-on: ubuntu-latest
-    services:
-      dvwa:
-        image: vulnerables/web-dvwa:latest
-        ports: ['8081:80']
-    steps:
-      - uses: actions/checkout@v4
-      - name: Aguardar o DVWA responder
-        run: |
-          for i in $(seq 1 30); do
-            curl -sf http://localhost:8081/ > /dev/null && break
-            sleep 2
-          done
-      - name: Rodar Nikto (DAST)
-        run: |
-          mkdir -p reports
-          docker run --rm --network host -v "$PWD/reports:/reports" \
-            hysnsec/nikto:latest \
-            -h http://localhost:8081 \
-            -Format json -o /reports/nikto-dvwa.json || true
-      - uses: actions/upload-artifact@v4
-        with:
-          name: nikto-json
-          path: reports/nikto-dvwa.json
-
-  security-gate:
-    needs: [sast-opengrep, dast-nikto]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with: { name: opengrep-sarif, path: reports }
-      - uses: actions/download-artifact@v4
-        with: { name: nikto-json, path: reports }
-
-      - name: Gate SAST — ERROR (=HIGH) no SARIF do OpenGrep
-        id: sast
-        run: |
-          # O OpenGrep nao escreve "level" em cada result: a severidade fica
-          # na definicao da regra, e o result herda dela. Filtrar so por
-          # .level daria sempre zero.
-          N=$(jq '
-            [ .runs[]
-              | (reduce (.tool.driver.rules[]?) as $r ({};
-                    .[$r.id] = $r.defaultConfiguration.level)) as $lv
-              | .results[]
-              | (.level // $lv[.ruleId] // "warning")
-            ] | map(select(. == "error")) | length
-          ' reports/opengrep-dvwa.sarif)
-          echo "OpenGrep: $N achado(s) HIGH"
-          echo "count=$N" >> "$GITHUB_OUTPUT"
-
-      - name: Gate DAST — achados HIGH no relatório do Nikto
-        id: dast
-        run: |
-          RE='phpinfo|/admin|Directory indexing|backup|\.git|test/|Default account'
-          N=$(jq --arg re "$RE" \
-               '[.. | objects | select(has("msg")) | select(.msg | test($re; "i"))] | length' \
-               reports/nikto-dvwa.json)
-          echo "Nikto: $N achado(s) HIGH"
-          echo "count=$N" >> "$GITHUB_OUTPUT"
-
-      - name: Decisão do gate
-        env:
-          SAST_COUNT: ${{ steps.sast.outputs.count }}
-          DAST_COUNT: ${{ steps.dast.outputs.count }}
-        run: |
-          TOTAL=$(( SAST_COUNT + DAST_COUNT ))
-          echo "SAST=$SAST_COUNT  DAST=$DAST_COUNT  TOTAL=$TOTAL"
-          if [ "$TOTAL" -gt 0 ]; then
-            echo "::error::Gate REPROVADO — $TOTAL achado(s) de severidade HIGH."
-            exit 1
-          fi
-          echo "Gate APROVADO — nenhum achado HIGH."
+```
+guarda-de-escopo ─┐
+sast-opengrep ────┼─→ security-gate ─→ config-do-deploy ─→ deploy
+dast-nikto ───────┘
 ```
 
-Comando para disparar:
+| Job | O que faz |
+|---|---|
+| `guarda-de-escopo` | falha se o `docker-compose.yml` expuser o DVWA fora de `localhost` |
+| `sast-opengrep` | clona o código do DVWA, compila o OpenGrep, gera o SARIF |
+| `dast-nikto` | sobe o DVWA, espera responder, roda o Nikto, derruba tudo |
+| `security-gate` | soma os achados HIGH das duas ferramentas e decide |
+| `config-do-deploy` | verifica se os secrets do deploy existem |
+| `deploy` | publica na VM Azure — só em push na `main`, só com o gate verde |
+
+O `config-do-deploy` existe por uma limitação do GitHub Actions: o contexto
+`secrets` não pode ser lido num `if:` de job. Sem ele, um repositório sem os
+secrets configurados teria o build vermelho por um motivo que não é achado de
+segurança.
+
+### Como o gate conta
+
+```bash
+# SAST — o OpenGrep não escreve "level" em cada achado: a severidade fica na
+# definição da regra, e o achado herda. Por isso montamos o mapa
+# ruleId -> level antes de contar. Filtrar direto por .level retorna zero.
+jq '
+  [ .runs[]
+    | (reduce (.tool.driver.rules[]?) as $r ({};
+          .[$r.id] = $r.defaultConfiguration.level)) as $lv
+    | .results[]
+    | (.level // $lv[.ruleId] // "warning")
+  ] | map(select(. == "error")) | length
+' reports/opengrep-dvwa.sarif
+
+# DAST — o Nikto não emite severidade nenhuma, então o corte é a lista
+# NIKTO_HIGH definida pelo grupo (ver passo 3).
+jq --arg re "$NIKTO_HIGH" \
+  '[.. | objects | select(has("msg")) | select(.msg | test($re; "i"))] | length' \
+  reports/nikto-dvwa.json
+```
+
+O build quebra se a **soma** for maior que zero.
+
+> **Erro que o grupo cometeu e corrigiu:** a primeira versão do gate filtrava
+> `select(.level=="error")` direto nos resultados do SARIF. Como nenhum
+> resultado do OpenGrep carrega esse campo, o gate reportava `OpenGrep: 0`
+> mesmo com 58 achados no relatório. O build ficava vermelho assim mesmo, por
+> causa do Nikto — o que mascarava o problema. Só apareceu ao conferir o log
+> do job. Depois da correção: `SAST=25 DAST=3 TOTAL=28`.
+
+### Disparar
 
 ```bash
 git push origin main
@@ -400,26 +382,20 @@ git push origin main
 
 Resultado esperado:
 
-- **Build vermelho:** com o DVWA em Security Level **Low**, o job
-  `security-gate` falha ao somar o `ERROR` de SQL Injection do OpenGrep com os
-  **2 achados de `Directory indexing`** (`/config/` e `/docs/`) que o Nikto
-  reportou de fato na execução do grupo — ambos batem na lista `NIKTO_HIGH`.
-- **Build verde:** aplicando o patch de exemplo em `patches/fix-sqli.php`
-  (troca para prepared statement) e desabilitando o autoindex do Apache
-  (`Options -Indexes`), os dois contadores zeram e o job passa.
+- **Build vermelho:** com o DVWA em Security Level **Low**, o gate soma os 25
+  achados `error` do OpenGrep com os 3 da lista `NIKTO_HIGH` (`Directory
+  indexing` em `/config/` e `/docs/`, e a página de login administrativa).
+- **Build verde:** aplicando `patches/fix-sqli.php` e desabilitando o autoindex
+  do Apache (`Options -Indexes`), os contadores caem.
 
-O que observar: **os dois** achados vistos nos passos 2 e 4 são o que derruba
-o build — a rastreabilidade entre relatório e gate precisa ficar clara para a
-turma. Repare também que o job `dast-nikto` só é possível porque ele sobe o
-DVWA como *service container*: o DAST exige a aplicação no ar, o SAST não.
+O que observar: **os dois** achados vistos nos passos 2 e 4 alimentam a mesma
+decisão — a rastreabilidade entre relatório e gate precisa ficar clara para a
+turma. Repare também que o job `dast-nikto` sobe o DVWA antes de escanear,
+enquanto o `sast-opengrep` só precisa do código-fonte: é o contraste entre as
+duas categorias, visível no próprio YAML.
 
-O enunciado exige a demonstração do build vermelho **e** do verde; versionem
-os prints/links das duas execuções em `evidencias/`.
-
-> **Verificar antes de publicar:** a estrutura do JSON do Nikto varia entre
-> versões (às vezes um array no topo, às vezes `{"vulnerabilities":[...]}`).
-> O filtro `jq` acima foi escrito de forma tolerante (`.. | objects`), mas
-> confirmem contra o arquivo real gerado no passo 4.
+O enunciado exige a demonstração do build vermelho **e** do verde; versionem os
+prints das duas execuções em `evidencias/`.
 
 ---
 

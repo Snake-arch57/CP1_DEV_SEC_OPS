@@ -1,0 +1,18 @@
+# Override de remediacao.
+#
+# NAO e usado no laboratorio local: a turma roda `docker compose up -d dvwa`
+# com o compose base e ve o DVWA vulneravel, que e o objeto de estudo.
+#
+# E usado em dois lugares, e nos dois pelo mesmo motivo -- o que vai para o
+# servidor precisa ser a versao remediada:
+#
+#   1. no job dast-nikto, para o gate avaliar o estado corrigido
+#   2. no job deploy, para a VM receber exatamente o que o gate validou
+#
+# Uso:
+#   docker compose -f docker-compose.yml -f docker-compose.hardening.yml up -d dvwa
+
+services:
+  dvwa:
+    volumes:
+      - ./hardening/no-indexes.conf:/etc/apache2/conf-enabled/no-indexes.conf:ro

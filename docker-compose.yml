@@ -1,0 +1,33 @@
+services:
+  dvwa:
+    image: vulnerables/web-dvwa:latest
+    container_name: dvwa
+    ports:
+      - "127.0.0.1:8081:80"
+    networks:
+      - lab
+
+  opengrep:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: opengrep
+    volumes:
+      - ./targets/dvwa:/src:ro
+      - ./reports:/reports
+    networks:
+      - lab
+
+  nikto:
+    image: hysnsec/nikto:latest
+    container_name: nikto
+    volumes:
+      - ./reports:/reports
+    networks:
+      - lab
+    depends_on:
+      - dvwa
+
+networks:
+  lab:
+    driver: bridge

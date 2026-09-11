@@ -231,10 +231,14 @@ jobs:
               exit 1
             }
 
-            docker compose pull
-            docker compose build
+            # So o DVWA roda na VM. O opengrep e o nikto sao ferramentas de
+            # analise, usadas no CI e no laboratorio local -- nao sao servicos
+            # da aplicacao. Buildar a imagem do OpenGrep aqui gastaria minutos
+            # e disco a cada deploy sem nenhum uso, e o servico monta
+            # ./targets/dvwa, que nao existe na VM.
+            docker compose pull dvwa
             docker compose up -d --force-recreate dvwa
-            docker compose ps
+            docker compose ps dvwa
 
       - name: Resumo
         run: |

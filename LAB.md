@@ -666,23 +666,50 @@ correspondente já foi atualizado com o output real — os dois andam juntos:
 
 ## Checklist de publicação (marco D-2)
 
-- [ ] `docker-compose.yml` sobe tudo com um único comando
-- [ ] `README.md` com os comandos de `docker pull` de cada imagem
-- [ ] Nomes/tags das imagens confirmados com `docker pull` real
-- [ ] LAB.md testado em máquina que não é a de vocês
-- [ ] Relatórios de saída (`reports/`) versionados — incluindo os do Snyk e do
-      Terrascan (Apêndice B)
-- [ ] Pipeline integra **as 2 ferramentas** (jobs `sast-opengrep` e `dast-nikto`)
-- [ ] Evidência de **build vermelho e build verde** versionada em `evidencias/`
-- [ ] Análise dos 3 achados preenchida com achados reais (VP/FP + CWE + correção)
-- [ ] Vídeo de plano B de **5 a 8 minutos** (ou GIF da execução completa)
-      gravado e versionado
-- [ ] 2 perguntas de verificação definidas para a turma
-- [ ] `USO-DE-IA.md` preenchido e versionado na raiz
-- [ ] Histórico de commits distribuído entre todos os integrantes
-- [ ] Repositório publicado com a antecedência confirmada (24h ou 48h)
-- [ ] Apresentação ensaiada e cronometrada dentro de 30 min (lab em 12 min)
-- [ ] *(se usar o Apêndice A)* Secrets `AZURE_VM_HOST`, `AZURE_VM_USER`,
-      `AZURE_VM_SSH_KEY` configurados em Settings > Secrets
-- [ ] *(se usar o Apêndice A)* Firewall/NSG da VM Azure restringindo acesso ao
-      DVWA (não exposto publicamente)
+> Documento vivo — marquem conforme concluírem. Item desmarcado significa
+> *ainda não feito*, não esquecimento.
+
+### Pronto
+
+- [x] `docker-compose.yml` sobe o ambiente com um único comando
+- [x] `README.md` com os comandos de download de cada imagem (seção 5.3.3)
+- [x] Nomes/tags das imagens confirmados em execução real
+- [x] Pipeline integra **as 2 ferramentas** (`sast-opengrep` e `dast-nikto`)
+- [x] Gate de severidade funcionando, com build vermelho e verde reproduzidos
+- [x] Relatórios do OpenGrep e do Nikto versionados em `reports/`
+- [x] 2 perguntas de verificação definidas para a turma (passo 6)
+- [x] `USO-DE-IA.md` preenchido e versionado na raiz
+- [x] Secrets `AZURE_VM_HOST`, `AZURE_VM_USER`, `AZURE_VM_SSH_KEY` configurados
+- [x] Deploy automático na VM Azure funcionando, gated pelo `security-gate`
+
+### Falta — em ordem de peso na nota
+
+- [ ] **Reescrever as três análises de achado com as palavras do grupo.** Os
+      dados são reais, mas a redação saiu da IA. Vale 8 pts e qualquer
+      integrante pode ser questionado sobre elas na apresentação
+- [ ] **Rodar Snyk e Terrascan** (Apêndice B) e versionar os relatórios. Sem
+      isso não há evidência para 2 das 4 ferramentas, e a seção 6(e) exige
+      taxa de falso positivo e tempo de execução **de cada uma**
+- [ ] **Medir tempo de execução e taxa de falso positivo** das 4 ferramentas,
+      para a seção 6(e) do documento
+- [ ] **Prints de build vermelho e verde** salvos em `evidencias/`
+- [ ] **Vídeo de plano B**, 5 a 8 minutos (3 pts)
+- [ ] **Testar o `LAB.md` em máquina que não é de nenhum integrante** —
+      exigência explícita do enunciado
+- [ ] **Histórico de commits distribuído** entre todos os integrantes. O slide
+      é explícito: repositório com commits de uma pessoa só não caracteriza
+      trabalho em grupo, por mais completo que esteja
+- [ ] Apresentação ensaiada e cronometrada dentro de 30 min (lab em 12)
+- [ ] Repositório publicado com a antecedência confirmada (24h ou 48h — ver
+      nota no topo deste arquivo)
+
+### Recomendado, não exigido
+
+- [ ] Conferir no portal que o NSG **não** tem regra para a 8081, e restringir
+      a origem da porta 22 ao IP de vocês em vez de `Any`
+- [ ] Desabilitar autenticação por senha na VM (há duas chaves funcionando).
+      Antes, cadastrar uma chave reserva pelo portal, em *Help > Reset password*
+- [ ] Desabilitar o LLMNR na VM (`ss -tlnp` mostra a porta 5355 escutando em
+      todas as interfaces) — achado real da infraestrutura do grupo
+- [ ] `gh auth logout` na VM: há um token com acesso de escrita ao repositório
+      guardado numa máquina que hospeda o DVWA

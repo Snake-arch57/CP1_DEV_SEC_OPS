@@ -684,12 +684,14 @@ correspondente já foi atualizado com o output real — os dois andam juntos:
 
 ### Falta — em ordem de peso na nota
 
+- [ ] **Rodar Snyk e Terrascan** (Apêndice B) e versionar os relatórios.
+      Metade das ferramentas do grupo **não tem nenhuma evidência de
+      execução** — não é "falta gerar o relatório", é que não existe nada.
+      Afeta três frentes: relatórios versionados (5 pts), análise crítica
+      própria (5 pts) e cobertura do roteiro da seção 6 (10 pts)
 - [ ] **Reescrever as três análises de achado com as palavras do grupo.** Os
       dados são reais, mas a redação saiu da IA. Vale 8 pts e qualquer
       integrante pode ser questionado sobre elas na apresentação
-- [ ] **Rodar Snyk e Terrascan** (Apêndice B) e versionar os relatórios. Sem
-      isso não há evidência para 2 das 4 ferramentas, e a seção 6(e) exige
-      taxa de falso positivo e tempo de execução **de cada uma**
 - [ ] **Medir tempo de execução e taxa de falso positivo** das 4 ferramentas,
       para a seção 6(e) do documento
 - [ ] **Prints de build vermelho e verde** salvos em `evidencias/`

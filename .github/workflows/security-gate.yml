@@ -250,7 +250,7 @@ jobs:
           script_stop: true
           script: |
             set -euo pipefail
-            APP_DIR=/opt/checkpoint01-grupo1
+            APP_DIR=/opt/CP1_DEV_SEC_OPS
 
             # O diretorio precisa existir e pertencer ao usuario do deploy.
             # Isso e feito uma unica vez, na preparacao da VM (ver DEPLOY.md),

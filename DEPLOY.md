@@ -57,8 +57,8 @@ Crie o diretório do projeto **com dono correto**. Isso é o que permite ao
 workflow rodar sem `sudo` sem senha:
 
 ```bash
-sudo mkdir -p /opt/checkpoint01-grupo1
-sudo chown -R "$(id -un)":"$(id -un)" /opt/checkpoint01-grupo1
+sudo mkdir -p /opt/CP1_DEV_SEC_OPS
+sudo chown -R "$(id -un)":"$(id -un)" /opt/CP1_DEV_SEC_OPS
 ```
 
 ---
@@ -103,7 +103,7 @@ wc -l ~/.ssh/authorized_keys
 Teste antes de seguir — se isso não funcionar, o workflow também não vai:
 
 ```bash
-ssh -i ~/.ssh/cp1_ci <usuario>@<ip-da-vm> "docker --version && ls -ld /opt/checkpoint01-grupo1"
+ssh -i ~/.ssh/cp1_ci <usuario>@<ip-da-vm> "docker --version && ls -ld /opt/CP1_DEV_SEC_OPS"
 ```
 
 Tem que responder **sem pedir senha**. Se pedir, a chave pública não foi
@@ -220,7 +220,7 @@ Print do verde também vai para `evidencias/`.
 Na VM:
 
 ```bash
-cd /opt/checkpoint01-grupo1
+cd /opt/CP1_DEV_SEC_OPS
 git log -1 --oneline      # deve bater com o commit do push
 docker compose ps         # containers com CREATED recente
 ```
@@ -236,7 +236,7 @@ do túnel SSH.
 |---|---|---|
 | `deploy` pulado com gate verde | Secrets ausentes ou com nome errado | `gh secret list` e conferir os três nomes |
 | `ssh: handshake failed` | Chave privada incompleta no secret | Regravar com `gh secret set ... < arquivo`, não por copiar/colar |
-| `permission denied` no `/opt/...` | Passo 1 não executado | `sudo chown -R "$(id -un)" /opt/checkpoint01-grupo1` |
+| `permission denied` no `/opt/...` | Passo 1 não executado | `sudo chown -R "$(id -un)" /opt/CP1_DEV_SEC_OPS` |
 | `docker: permission denied` na VM | Usuário fora do grupo `docker` | `sudo usermod -aG docker "$(id -un)"` e **reconectar** |
 | Deploy aborta com "exporia o DVWA" | Bind alterado no `docker-compose.yml` | Restaurar `127.0.0.1:8081:80` |
 | `git reset --hard` falha | Alteração manual feita na VM | É esperado: a VM é descartável, não edite nada lá |

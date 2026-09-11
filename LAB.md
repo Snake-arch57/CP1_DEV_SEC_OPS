@@ -479,7 +479,7 @@ se o deploy acontece.
           username: ${{ secrets.AZURE_VM_USER }}
           key: ${{ secrets.AZURE_VM_SSH_KEY }}
           script: |
-            cd /opt/checkpoint01-grupo1
+            cd /opt/CP1_DEV_SEC_OPS
             git pull origin main
             docker compose pull
             docker compose up -d --force-recreate
@@ -489,7 +489,7 @@ Comando local equivalente, para teste manual antes de confiar só no CI:
 
 ```bash
 ssh usuario@<ip-da-vm-azure>
-cd /opt/checkpoint01-grupo1
+cd /opt/CP1_DEV_SEC_OPS
 git pull origin main
 docker compose up -d --force-recreate
 ```

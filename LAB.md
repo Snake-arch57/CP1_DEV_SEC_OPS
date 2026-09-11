@@ -19,6 +19,52 @@ Duração estimada: 12 minutos (bloco 3 da divisão de tempo do enunciado)
 
 ---
 
+## ⚠️ Alvo e escopo — leia antes do passo 0
+
+**Alvo deste laboratório: DVWA — Damn Vulnerable Web Application (PHP)**,
+imagem `vulnerables/web-dvwa`. Consta na lista de **alvos vulneráveis
+autorizados** da seção 7 do enunciado.
+
+O DVWA é uma aplicação **deliberadamente vulnerável**. Ao seguir este roteiro
+você sobe, na sua própria máquina, uma aplicação projetada para ser invadida —
+com credenciais padrão (`admin` / `password`) e Security Level em **Low**. Isso
+é intencional: é o que faz as ferramentas encontrarem achados reais, conforme
+o requisito 4 da seção 5.3. Mas exige cuidado.
+
+### Regras de escopo deste laboratório
+
+- **Tudo roda em Docker local**, na rede interna do `docker-compose`.
+- **A porta 8081 fica em `localhost`.** Não publiquem na rede da instituição,
+  não rodem em Wi-Fi público e não exponham à internet.
+- **Nenhum passo varre host de terceiros.** O Nikto aponta para
+  `http://dvwa:80`, nome resolvido apenas dentro da rede do compose.
+- **Ao terminar, derrubem o ambiente:** `docker compose down -v` (passo 7).
+  Não deixem o DVWA rodando depois da aula.
+
+### Alvos usados neste repositório — todos da seção 7
+
+| Alvo | Categoria | Onde é usado |
+|---|---|---|
+| DVWA (PHP) | SAST + DAST | Laboratório ao vivo, passos 1 a 5 |
+| TerraGoat (Terraform) | IaC | Apêndice B (execução offline) |
+| OWASP NodeGoat (Node.js) | SCA | Apêndice B (execução offline) |
+
+### Por que a regra é rígida
+
+A seção 7 do enunciado é a única com penalidade máxima:
+
+> "É terminantemente proibido executar DAST, fuzzing ou qualquer varredura
+> ativa contra sistemas de terceiros, sites públicos, ambientes da empresa onde
+> você trabalha, ou qualquer alvo fora da lista acima. Varredura sem
+> autorização é crime no Brasil (Lei 12.737/2012 e Art. 154-A do Código Penal).
+> Trabalho que apresente evidência de varredura em alvo não autorizado recebe
+> **nota zero** e o caso é encaminhado à coordenação."
+
+Vale para quem apresenta **e** para quem assiste: apontar o Nikto para
+qualquer coisa que não seja o container local está fora do escopo autorizado.
+
+---
+
 ## Ferramentas do Grupo 1 (as 4 confirmadas no enunciado)
 
 | Categoria | Ferramenta | No lab ao vivo? | Evidência versionada |
@@ -55,33 +101,48 @@ Nikto (DAST) porque ambas se aplicam diretamente ao DVWA como alvo.
 Comandos de preparação:
 
 ```bash
-git clone <url-do-repo>
-cd <repo>
-docker compose pull
+git clone https://github.com/Snake-arch57/CP1_DEV_SEC_OPS.git
+cd CP1_DEV_SEC_OPS
+docker compose pull      # baixa DVWA e Nikto
+docker compose build     # compila a imagem do OpenGrep (ver nota abaixo)
 ```
 
 Verificação: `docker images | grep -E "dvwa|opengrep|nikto"` deve retornar as
-três imagens listadas.
+três imagens.
 
 ### Comandos de download de cada imagem (exigido no README.md do repositório)
 
 ```bash
 docker pull vulnerables/web-dvwa:latest
-docker pull opengrep/opengrep:latest
 docker pull hysnsec/nikto:latest
+docker compose build opengrep    # OpenGrep é compilado, não baixado
 ```
 
-> Estes três comandos devem constar também no `README.md` do repositório,
+> Estes comandos devem constar também no `README.md` do repositório,
 > conforme exige a seção 5.3.3 do enunciado — não basta estar só aqui no
 > `LAB.md`.
 
-> **Verificar antes de publicar:** o OpenGrep é o fork mantido pela org
-> `opengrep` — a imagem **não** é `returntocorp/opengrep` (`returntocorp` é a
-> org antiga do Semgrep). Confirmem a tag real com
-> `docker pull opengrep/opengrep:latest` e ajustem aqui se necessário. O mesmo
-> vale para a imagem do Nikto: `frapsoft/nikto` está sem manutenção há anos;
-> `hysnsec/nikto` é a alternativa mais atual. A seção 10 do enunciado penaliza
-> "informação técnica incorreta sobre a ferramenta independentemente da origem".
+> **Por que o OpenGrep é compilado e não baixado:** não há imagem oficial
+> publicada pela organização `opengrep` no Docker Hub. O `Dockerfile` deste
+> repositório instala o binário a partir do script oficial do projeto, com a
+> versão fixada em `OPENGREP_VERSION=v1.22.0`. Fixar a versão é deliberado:
+> garante que a turma inteira rode exatamente o mesmo binário que o grupo
+> testou.
+>
+> Cuidado com a confusão comum: `returntocorp/opengrep` **não** é o OpenGrep —
+> `returntocorp` é a organização antiga do **Semgrep**, projeto do qual o
+> OpenGrep é um fork.
+
+> **O OpenGrep analisa o código-fonte do DVWA, não a imagem em execução.** O
+> serviço monta `./targets/dvwa` como `/src`. Antes do passo 2, clonar o
+> código-fonte:
+>
+> ```bash
+> git clone https://github.com/digininja/DVWA.git targets/dvwa
+> ```
+>
+> Esse é o contraste central do laboratório: o SAST precisa do **código**, o
+> DAST precisa da **aplicação no ar**.
 
 ---
 
@@ -190,18 +251,32 @@ docker compose run --rm nikto \
   -Format txt -o /reports/nikto-dvwa.txt
 ```
 
-Resultado esperado (trecho do output):
+Resultado esperado — **output real** da execução do grupo, versionado em
+[`reports/nikto-dvwa.txt`](reports/nikto-dvwa.txt):
 
 ```
-+ Server: Apache/2.4...
-+ The X-Content-Type-Options header is not set.
-+ The X-Frame-Options header is not set.
-+ /phpinfo.php: Output from the phpinfo() function was found.
+- Nikto v2.1.5/2.1.5
++ Target Host: dvwa
++ Target Port: 80
++ GET /: Cookie PHPSESSID created without the httponly flag
++ GET /: Cookie security created without the httponly flag
++ GET /: The anti-clickjacking X-Frame-Options header is not present.
++ GET /robots.txt: Server leaks inodes via ETags
++ GET /robots.txt: "robots.txt" contains 1 entry which should be manually viewed.
++ -3268: GET /config/: Directory indexing found.
++ GET /config/: Configuration information may be available remotely.
++ -3268: GET /docs/: Directory indexing found.
++ -3233: GET /icons/README: Apache default file found.
++ GET /login.php: Admin login page/section found.
 ```
 
 O que observar: Nikto não vê o código — ele bate na aplicação em execução
 e reporta configuração de runtime que o OpenGrep, olhando só o código
-parado, jamais acusaria.
+parado, jamais acusaria. Repare em `/config/`: o **directory indexing** expõe
+o diretório onde o DVWA guarda a configuração do banco. Nenhuma análise
+estática do código PHP acusaria isso, porque o problema está na configuração
+do Apache, não no código.
+
 
 > **Escopo:** o alvo é `http://dvwa:80`, resolvido **dentro da rede do
 > `docker-compose`**. Nenhum host externo é varrido, conforme a regra de ética
@@ -317,11 +392,12 @@ git push origin main
 Resultado esperado:
 
 - **Build vermelho:** com o DVWA em Security Level **Low**, o job
-  `security-gate` falha ao somar o `ERROR` de SQL Injection do OpenGrep com o
-  achado de `phpinfo.php` do Nikto.
+  `security-gate` falha ao somar o `ERROR` de SQL Injection do OpenGrep com os
+  **2 achados de `Directory indexing`** (`/config/` e `/docs/`) que o Nikto
+  reportou de fato na execução do grupo — ambos batem na lista `NIKTO_HIGH`.
 - **Build verde:** aplicando o patch de exemplo em `patches/fix-sqli.php`
-  (troca para prepared statement) e removendo o `phpinfo.php` do alvo, os dois
-  contadores zeram e o job passa.
+  (troca para prepared statement) e desabilitando o autoindex do Apache
+  (`Options -Indexes`), os dois contadores zeram e o job passa.
 
 O que observar: **os dois** achados vistos nos passos 2 e 4 são o que derruba
 o build — a rastreabilidade entre relatório e gate precisa ficar clara para a
@@ -484,61 +560,30 @@ Para cada uma, anotar no documento de pesquisa (seção 6e):
 
 ---
 
-## Anexo — Declaração de uso de IA (`USO-DE-IA.md`)
+## Anexo — Declaração de uso de IA
 
-> Este bloco deve ser versionado como arquivo separado `USO-DE-IA.md` na
-> raiz do repositório, conforme exige a seção 10 do enunciado. Reproduzido
-> aqui como referência de conteúdo mínimo.
+A declaração exigida pela **seção 10** do enunciado ("uso de IA generativa é
+permitido e incentivado, desde que declarado em um anexo `USO-DE-IA.md`
+indicando o que foi gerado e como foi validado") está versionada como arquivo
+separado na raiz do repositório:
 
-```markdown
-# Declaração de Uso de IA Generativa — Grupo 1
+**[`USO-DE-IA.md`](USO-DE-IA.md)**
 
-## Ferramenta de IA utilizada
-Claude (Anthropic), via Claude Code — apoio à redação, estruturação e
-revisão de documentação técnica.
+O conteúdo **não é reproduzido aqui de propósito** — é um documento vivo, com
+checkboxes que vão sendo marcados conforme as validações acontecem. Manter uma
+cópia neste arquivo garantiria que as duas versões divergissem.
 
-## O que foi gerado com apoio de IA
-- Estrutura inicial do LAB.md (esqueleto de seções seguindo o template do
-  Anexo A do enunciado)
-- Rascunho dos comandos de exemplo do OpenGrep e do Nikto
-- Redação inicial da tabela de troubleshooting
-- Rascunho do workflow `security-gate.yml`: separação em jobs por ferramenta,
-  filtros `jq` e lógica de decisão do gate
-- Revisão de conformidade do LAB.md contra o enunciado do Check Point 01
-  (checagem requisito a requisito da seção 5.3 e da rubrica da seção 9)
+Ao marcar um item como validado no `USO-DE-IA.md`, confiram se o `LAB.md`
+correspondente já foi atualizado com o output real — os dois andam juntos:
 
-## O que foi validado manualmente pelo grupo
-- Todos os comandos foram executados de fato contra o DVWA local antes da
-  entrega; outputs reais substituíram os exemplos gerados
-- Nomes e tags das imagens Docker conferidos com `docker pull` real. A IA
-  havia sugerido `returntocorp/opengrep`, que é a org antiga do Semgrep e não
-  do OpenGrep — erro identificado na revisão e corrigido após verificação
-- Rulesets (`p/php`, `p/owasp-top-ten`) e rule IDs conferidos contra a saída
-  real do OpenGrep, não contra a documentação do Semgrep
-- Filtros `jq` do gate testados localmente contra os arquivos SARIF e JSON
-  realmente gerados, antes de confiar no CI
-- Os achados da tabela de análise (Anexo "3 achados") são os observados na
-  execução do grupo, não os sugeridos pela IA
-- Conferência técnica de que o CWE-89 está corretamente associado ao
-  padrão de SQL Injection encontrado
-- Build vermelho e build verde reproduzidos de fato no GitHub Actions
-
-## O que NÃO foi gerado por IA
-- Vídeo de plano B
-- Execução ao vivo do pipeline (build vermelho/verde)
-- Escolha das 2 ferramentas do laboratório
-- Definição do mapeamento de severidade (ERROR→HIGH e a lista `NIKTO_HIGH`):
-  o critério é decisão técnica do grupo; a IA apenas o formatou em tabela
-- Perguntas de verificação definidas para a turma
-- Medições de tempo de execução e taxa de falso positivo do documento
-
-## Trechos de terceiros citados (seção 10 — citação obrigatória)
-- Template do `LAB.md`: Anexo A do enunciado do Check Point 01
-- Comandos de instalação e flags: documentação oficial de cada ferramenta,
-  referenciadas na bibliografia do documento de pesquisa
-- Alvos vulneráveis (DVWA, TerraGoat, NodeGoat): projetos OWASP / Bridgecrew,
-  referenciados no documento
-```
+| Ao validar em `USO-DE-IA.md` (seção 4.2) | Atualizar no `LAB.md` |
+|---|---|
+| Execução real das ferramentas | Blocos "Resultado esperado" dos passos 2 e 4 |
+| Nome/tag reais das imagens | Comandos `docker pull` do passo 0 |
+| Rulesets e rule IDs do OpenGrep | Comando e output do passo 2 |
+| Filtros `jq` testados | Job `security-gate` do passo 5 |
+| Build vermelho e verde | Passo 5 + `evidencias/` |
+| Achados reais observados | Anexo "Análise dos 3 achados" |
 
 ---
 

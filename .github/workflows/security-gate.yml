@@ -83,13 +83,25 @@ jobs:
   # ------------------------------------------------------------------
   dast-nikto:
     runs-on: ubuntu-latest
+    # COMPOSE precisa ser identico em TODAS as invocacoes deste job.
+    # O servico nikto tem `depends_on: dvwa`; se `docker compose run nikto`
+    # rodar sem o arquivo de override, o Compose ve que a configuracao do
+    # dvwa nao bate com a do container em execucao e o RECRIA sem o volume
+    # de hardening -- desfazendo a remediacao segundos antes do scan.
+    env:
+      COMPOSE: "-f docker-compose.yml -f docker-compose.hardening.yml"
     steps:
       - uses: actions/checkout@v4
 
       - name: Subir o DVWA com o override de remediacao
+        run: docker compose $COMPOSE up -d dvwa
+
+      - name: Conferir que o hardening esta ativo
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.hardening.yml \
-            up -d dvwa
+          docker compose $COMPOSE exec -T dvwa \
+            test -f /etc/apache2/conf-enabled/no-indexes.conf \
+            || { echo "::error::Override de hardening nao foi montado."; exit 1; }
+          echo "OK — no-indexes.conf presente no container."
 
       - name: Aguardar o DVWA responder
         run: |
@@ -98,19 +110,19 @@ jobs:
             sleep 3
           done
           echo "::error::DVWA nao respondeu em 120s."
-          docker compose logs dvwa
+          docker compose $COMPOSE logs dvwa
           exit 1
 
       - name: Rodar Nikto
         run: |
           mkdir -p reports
-          docker compose run --rm nikto \
+          docker compose $COMPOSE run --rm nikto \
             -h http://dvwa:80 \
             -Format json -o /reports/nikto-dvwa.json || true
 
       - name: Derrubar o ambiente
         if: always()
-        run: docker compose down -v
+        run: docker compose $COMPOSE down -v
 
       - uses: actions/upload-artifact@v4
         with:

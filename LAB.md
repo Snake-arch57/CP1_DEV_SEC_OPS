@@ -71,7 +71,7 @@ qualquer coisa que não seja o container local está fora do escopo autorizado.
 |---|---|---|---|
 | SAST | OpenGrep | Sim — Ferramenta A (passo 2) | ✅ `reports/opengrep-dvwa.sarif` |
 | SCA | Snyk Open Source | Não — execução offline | ⬜ **ainda não executado** |
-| IaC | Terrascan | Não — execução offline | ⬜ **ainda não executado** |
+| IaC | Terrascan | Não — execução offline | ✅ `reports/terrascan-terragoat.json` |
 | DAST | Nikto | Sim — Ferramenta B (passo 4) | ✅ `reports/nikto-dvwa.json` |
 
 O enunciado exige que o **documento de pesquisa** responda o roteiro da
@@ -89,6 +89,10 @@ Nikto (DAST) porque ambas se aplicam diretamente ao DVWA como alvo.
 > Por isso Snyk e Terrascan rodam **fora dos 12 minutos**, contra alvos
 > autorizados que façam sentido para cada categoria — ver
 > [Apêndice B](#apêndice-b--execuções-complementares-snyk-e-terrascan).
+>
+> **Estado:** o Terrascan já rodou (67 violações no TerraGoat, 10 s,
+> `reports/terrascan-terragoat.json`). O **Snyk continua sem execução** — é a
+> única das quatro sem nenhuma evidência, e ele exige token de conta.
 
 ---
 
@@ -175,23 +179,45 @@ docker compose run --rm opengrep \
   /src
 ```
 
-Resultado esperado (trecho do output):
+Resultado esperado — o que está **contado** no relatório versionado
+[`reports/opengrep-dvwa.sarif`](reports/opengrep-dvwa.sarif), produzido pelo
+`Opengrep OSS 1.22.0`:
 
 ```
-Scanning 320 files...
-Findings: 6 (2 ERROR, 4 WARNING)
-Rule ID: php.lang.security.injection.tainted-sql-string
-  vulnerabilities/sqli/source/low.php:15
+58 achados, em 24 arquivos
+  25 error    (= HIGH no mapeamento do grupo)
+  33 warning  (= MEDIUM)
+
+php.lang.security.injection.tainted-sql-string.tainted-sql-string
+  vulnerabilities/sqli/source/low.php:10
+  vulnerabilities/sqli/source/low.php:31
+  "User data flows into this manually-constructed SQL string."
 ```
 
-O que observar: a regra aponta a linha exata onde a variável `$id` chega
-na query sem sanitização — evidência de taint analysis, não só pattern
-matching.
+As regras de nível `error` que mais aparecem no DVWA inteiro:
+`tainted-sql-string` (14 ocorrências), `tainted-exec` (8), `phpinfo-use`,
+`echoed-request` e `run-shell-injection` (1 cada).
 
-> **Verificar na execução real:** `p/php` e `p/owasp-top-ten` são *rulesets do
-> Semgrep Registry*; o acesso do OpenGrep ao registry não é idêntico. A rule ID
-> acima também é do registry do Semgrep. Substituam o bloco de output e a rule
-> ID pelos valores **realmente observados** antes de publicar.
+O que observar: a regra aponta as linhas exatas onde a variável `$id` chega
+na query sem sanitização, e a mensagem fala do **fluxo** do dado do usuário
+até a string da query — evidência de taint analysis, não de simples
+casamento de padrão.
+
+> `p/php` e `p/owasp-top-ten` são rulesets do Semgrep Registry, e o OpenGrep
+> resolveu os dois. A linha literal da ferramenta é
+> `Ran 126 rules on 250 files: 58 findings.` — das 561 regras que o SARIF
+> registra no driver, 126 se aplicaram às linguagens encontradas. A varredura
+> levou **31 s**. Repare que a
+> rule ID completa repete o nome da regra no fim
+> (`...tainted-sql-string.tainted-sql-string`) — é assim que o OpenGrep a
+> escreve, e é essa string que entra no mapa `ruleId → level` do gate. Citar
+> a versão curta no documento faz o `jq` não encontrar nada.
+
+> Para recontar a qualquer momento, sem abrir o SARIF:
+>
+> ```bash
+> python3 scripts/resumir-achados.py
+> ```
 
 ---
 
@@ -308,6 +334,16 @@ do Apache, não no código.
 > `docker-compose`**. Nenhum host externo é varrido, conforme a regra de ética
 > da seção 7 do enunciado.
 
+> **A saída acima é da Nikto 2.1.5.** O `reports/nikto-dvwa.json` versionado
+> foi gerado pela **2.5.0**, que reporta os mesmos dois `Directory indexing`
+> mas também headers de segurança ausentes e o `.gitignore` — e não repete
+> mais o caminho dentro da mensagem. O `docker-compose.yml` usa
+> `hysnsec/nikto:latest`, e foi a tag que mudou entre as duas execuções: quem
+> rodar hoje pode ver a saída da 2.5.0. Fixar a tag numa versão, como o
+> `Dockerfile` já faz com `OPENGREP_VERSION=v1.22.0`, é o que garante que a
+> turma veja todos o mesmo resultado. Detalhes em
+> [`reports/README.md`](reports/README.md).
+
 ---
 
 ## 5. Rodar o pipeline e ver o gate quebrar
@@ -358,9 +394,13 @@ jq '
 ' reports/opengrep-dvwa.sarif
 
 # DAST — o Nikto não emite severidade nenhuma, então o corte é a lista
-# NIKTO_HIGH definida pelo grupo (ver passo 3).
+# NIKTO_HIGH definida pelo grupo (ver passo 3). O teste roda sobre
+# `url + msg`, não só sobre `msg`: no Nikto 2.5.0 o caminho ficou apenas no
+# campo `url`, e casar só na mensagem fazia os padrões de caminho da lista
+# (`/admin`, `/.git/`, `backup`, `test/`) nunca casarem com nada.
 jq --arg re "$NIKTO_HIGH" \
-  '[.. | objects | select(has("msg")) | select(.msg | test($re; "i"))] | length' \
+  '[.. | objects | select(has("msg"))
+     | select(((.url // "") + " " + .msg) | test($re; "i"))] | length' \
   reports/nikto-dvwa.json
 ```
 
@@ -372,6 +412,13 @@ O build quebra se a **soma** for maior que zero.
 > mesmo com 58 achados no relatório. O build ficava vermelho assim mesmo, por
 > causa do Nikto — o que mascarava o problema. Só apareceu ao conferir o log
 > do job. Depois da correção: `SAST=25 DAST=3 TOTAL=28`.
+>
+> Esse `28` é do gate daquele momento, que contava o DVWA inteiro e ainda
+> tinha o padrão `\.git` sem barras. Com o gate atual — escopo
+> `vulnerabilities/sqli/` e o padrão `/\.git/` — os **mesmos** relatórios
+> versionados dão `SAST=2 DAST=2 TOTAL=4`. Os dois números estão certos, em
+> momentos diferentes; a contagem de hoje está conferida em
+> [`reports/README.md`](reports/README.md).
 
 ### Disparar
 
@@ -380,13 +427,39 @@ git push origin main
 # acompanhar em: Actions > security-gate
 ```
 
-Resultado esperado:
+Em `push` e em `pull_request` o pipeline **sempre aplica as duas correções**
+— o patch do SQLi no job de SAST e o override de hardening no de DAST. É o
+estado que vai para a VM, e por isso o resultado dessas execuções é o build
+verde.
 
-- **Build vermelho:** com o DVWA em Security Level **Low**, o gate soma os 25
-  achados `error` do OpenGrep com os 3 da lista `NIKTO_HIGH` (`Directory
-  indexing` em `/config/` e `/docs/`, e a página de login administrativa).
-- **Build verde:** aplicando `patches/fix-sqli.php` e desabilitando o autoindex
-  do Apache (`Options -Indexes`), os contadores caem.
+Para reproduzir o **build vermelho** depois que as correções já entraram, rode
+o workflow à mão e **desmarque** a opção `remediacao`:
+
+```
+Actions > security-gate > Run workflow > remediacao: [ ]
+```
+
+Sem essa chave, o vermelho só era reproduzível editando o workflow — o que
+inviabilizava tirar o print de novo.
+
+Resultado esperado (contado nos relatórios versionados em `reports/`):
+
+| Execução | OpenGrep em `vulnerabilities/sqli/` | Nikto na lista `NIKTO_HIGH` | Total | Gate |
+|---|---|---|---|---|
+| `remediacao` desmarcada | 2 | 2 | 4 | ❌ **vermelho** |
+| `push` na `main` | 0 | 0 | 0 | ✅ **verde** |
+
+- Os 2 do OpenGrep são a mesma regra de SQL Injection, nas duas ocorrências
+  em `vulnerabilities/sqli/source/low.php`. São 25 achados `error` no DVWA
+  inteiro; o gate conta só o escopo em remediação.
+- Os 2 do Nikto são `Directory indexing found.` em `/config/` e em `/docs/`.
+- **Decisão pendente do grupo:** a página de login administrativa **não**
+  entra na conta. O padrão `/admin` da lista foi escrito para pegar um
+  diretório `/admin/` exposto e não casa com a mensagem `Admin login
+  page/section found.`. Incluí-la é acrescentar `Admin login page` à lista;
+  deixá-la fora é dizer que uma página de login exposta é MEDIUM, não HIGH.
+  Qualquer das duas serve — o que não serve é não ter decidido, porque isso
+  muda o número que aparece no print.
 
 O que observar: **os dois** achados vistos nos passos 2 e 4 alimentam a mesma
 decisão — a rastreabilidade entre relatório e gate precisa ficar clara para a
@@ -476,8 +549,20 @@ como SQL. Não há sanitização nem escape: a diferença conceitual é que esca
 tenta neutralizar a entrada, enquanto o prepared statement remove a
 possibilidade de a entrada virar código.
 
-**Verificação:** após o patch, o total de achados `error` caiu de 25 para 23,
-e o escopo `vulnerabilities/sqli/` foi a zero.
+**Verificação executada, em duas frentes.** No código: o total de achados
+`error` caiu de 25 para 23 e o escopo `vulnerabilities/sqli/` foi a zero
+(`opengrep-dvwa.sarif` → `opengrep-dvwa-remediado.sarif`). Na aplicação no
+ar, com `python3 scripts/testar-sqli.py`: antes do patch, `1' OR '1'='1`
+devolvia as **5 linhas** da tabela e `1' UNION SELECT user, password FROM
+users -- ` devolvia **6**; depois, nenhuma injeção devolve mais de 1 linha e
+a consulta legítima continua funcionando.
+
+> **Detalhe que vale para a apresentação:** depois da correção,
+> `1' OR '1'='1` ainda devolve **1** linha. Não é injeção — o prepared
+> statement entregou a string como dado, e o MySQL, comparando a coluna
+> inteira `user_id` com ela, converteu o prefixo numérico para 1 e achou o
+> usuário 1. A prova é `' OR '1'='1`, sem dígito no início: devolve 0. Antes
+> do patch, os dois devolviam 5.
 
 ### 2 — Directory indexing (Nikto) · verdadeiro positivo
 
@@ -493,8 +578,11 @@ execução, encontra. É o contraste central do laboratório.
 **Correção aplicada:** `hardening/no-indexes.conf` com `Options -Indexes`,
 montado via `docker-compose.hardening.yml`.
 
-**Verificação:** `curl http://127.0.0.1:8081/config/` deixou de retornar a
-listagem, e o gate foi a zero.
+**Verificação executada:** sem o override, `/config/` e `/docs/` respondem
+**HTTP 200 com `Index of /config`** — listagem exposta. Com o override, os
+dois respondem **HTTP 403**. Na mesma comparação, o Nikto cai de 15 para 12
+itens, e de 2 para 0 na lista `NIKTO_HIGH`. Relatórios: `nikto-dvwa.json` e
+`nikto-dvwa-remediado.json`.
 
 ### 3 — `.gitignore` como HIGH · falso positivo da política do grupo
 
@@ -605,6 +693,17 @@ alvo para nenhuma das duas (não tem manifesto de infraestrutura, e suas
 dependências PHP não são o foco), então cada uma usa um alvo autorizado da
 seção 7 adequado à sua categoria.
 
+Os dois comandos abaixo estão automatizados em
+[`scripts/rodar-sca-iac.sh`](scripts/rodar-sca-iac.sh), que também mede o
+tempo de cada execução e grava em `reports/tempos.txt` — evita a medição a
+olho, que é o que a seção 6(e) cobra:
+
+```bash
+SNYK_TOKEN=<seu-token> bash scripts/rodar-sca-iac.sh
+```
+
+O que ele roda, se preferirem à mão:
+
 **Terrascan (IaC) — alvo: TerraGoat**
 
 ```bash
@@ -681,20 +780,43 @@ correspondente já foi atualizado com o output real — os dois andam juntos:
 - [x] `USO-DE-IA.md` preenchido e versionado na raiz
 - [x] Secrets `AZURE_VM_HOST`, `AZURE_VM_USER`, `AZURE_VM_SSH_KEY` configurados
 - [x] Deploy automático na VM Azure funcionando, gated pelo `security-gate`
+- [x] Build vermelho **reproduzível** a qualquer momento (`Run workflow` com
+      `remediacao` desmarcada), e não só antes das correções entrarem
+- [x] Guarda de escopo em `scripts/verificar-escopo.sh`, usada pelo CI e pelo
+      deploy, cobrindo qualquer porta do compose — não só a linha do DVWA
+- [x] `.gitignore` impedindo que `targets/` (DVWA, TerraGoat, NodeGoat) entre
+      no repositório
+- [x] Contagem dos relatórios automatizada (`scripts/resumir-achados.py`),
+      para o documento não divergir da evidência
+- [x] **Terrascan executado** — 67 violações (35 HIGH) no TerraGoat em 10 s,
+      relatório em `reports/terrascan-terragoat.json`
+- [x] **Tempo de execução medido** de OpenGrep (31 s), Nikto (6 s) e
+      Terrascan (10 s), em `reports/tempos.txt`
+- [x] **Correção do SQLi verificada na aplicação no ar**, não só no
+      relatório: `python3 scripts/testar-sqli.py` mostra a injeção devolvendo
+      a tabela inteira antes e nada depois
+- [x] **Relatórios pós-remediação versionados**
+      (`opengrep-dvwa-remediado.sarif`, `nikto-dvwa-remediado.json`),
+      comprovando os números do build verde
 
 ### Falta — em ordem de peso na nota
 
-- [ ] **Rodar Snyk e Terrascan** (Apêndice B) e versionar os relatórios.
-      Metade das ferramentas do grupo **não tem nenhuma evidência de
-      execução** — não é "falta gerar o relatório", é que não existe nada.
-      Afeta três frentes: relatórios versionados (5 pts), análise crítica
-      própria (5 pts) e cobertura do roteiro da seção 6 (10 pts)
+- [ ] **Rodar o Snyk.** É a única das quatro ferramentas sem nenhuma
+      evidência de execução, e isso afeta três frentes: relatórios
+      versionados (5 pts), análise crítica própria (5 pts) e cobertura do
+      roteiro da seção 6 (10 pts). Já está automatizado — falta o token:
+      `SNYK_TOKEN=<seu-token> bash scripts/rodar-sca-iac.sh`.
+      Token gratuito em snyk.io > Account settings. **Não commitem o token**
 - [ ] **Reescrever as três análises de achado com as palavras do grupo.** Os
       dados são reais, mas a redação saiu da IA. Vale 8 pts e qualquer
       integrante pode ser questionado sobre elas na apresentação
-- [ ] **Medir tempo de execução e taxa de falso positivo** das 4 ferramentas,
-      para a seção 6(e) do documento
-- [ ] **Prints de build vermelho e verde** salvos em `evidencias/`
+- [ ] **Taxa de falso positivo das 4 ferramentas**, para a seção 6(e). Os
+      totais e os tempos já estão medidos (`reports/tempos.txt`,
+      `python3 scripts/resumir-achados.py`); o que falta é a classificação —
+      análise do grupo, que nenhum script decide
+- [ ] **Prints de build vermelho e verde** salvos em `evidencias/`. O job
+      `security-gate` agora imprime a tabela de contagem no resumo da
+      execução (aba *Summary*) — é dali que sai o print legível, não do log
 - [ ] **Vídeo de plano B**, 5 a 8 minutos (3 pts)
 - [ ] **Testar o `LAB.md` em máquina que não é de nenhum integrante** —
       exigência explícita do enunciado

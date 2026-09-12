@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      remediacao:
+        description: "Aplicar as correcoes antes de medir. Desmarque para reproduzir o BUILD VERMELHO."
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -18,6 +23,17 @@ concurrency:
 env:
   DVWA_SRC: https://github.com/digininja/DVWA.git
 
+  # Liga/desliga as duas correcoes (patch do SQLi e override de hardening) em
+  # UM lugar so. O requisito 5 da secao 5.3 exige demonstrar build vermelho E
+  # verde; sem esta chave o vermelho nao era mais reproduzivel, porque
+  # `push` e `pull_request` sempre aplicam as correcoes -- depois que elas
+  # entraram, o pipeline passou a dar verde em toda execucao e nao havia como
+  # gerar o print do vermelho de novo sem editar o workflow.
+  #
+  #   push / pull_request -> sempre remedia (true)
+  #   workflow_dispatch   -> obedece a caixa de selecao (Actions > Run workflow)
+  REMEDIAR: ${{ github.event_name != 'workflow_dispatch' || inputs.remediacao }}
+
 jobs:
   # ------------------------------------------------------------------
   # Guarda de escopo (seção 7 do enunciado)
@@ -25,20 +41,15 @@ jobs:
   # DVWA é deliberadamente vulnerável. Se alguém trocar o bind de
   # 127.0.0.1 por 0.0.0.0, o deploy passaria a publicar uma aplicação
   # invadível na internet. Isso falha o build ANTES de qualquer deploy.
+  #
+  # A verificação vive em scripts/verificar-escopo.sh — o mesmo arquivo que o
+  # deploy executa dentro da VM. Duas cópias do mesmo `grep` divergiriam.
   guarda-de-escopo:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verificar que o DVWA não é exposto publicamente
-        run: |
-          if grep -Eq '^\s*-\s*"?(0\.0\.0\.0:)?[0-9]+:80"?\s*$' docker-compose.yml; then
-            echo "::error::docker-compose.yml publica o DVWA em todas as interfaces."
-            echo "::error::Use o formato 127.0.0.1:<porta>:80 — ver secao 7 do enunciado."
-            exit 1
-          fi
-          grep -q '127.0.0.1:8081:80' docker-compose.yml \
-            || { echo "::error::Bind 127.0.0.1:8081:80 nao encontrado."; exit 1; }
-          echo "OK — DVWA restrito a localhost."
+      - name: Verificar que nenhuma porta do compose sai de localhost
+        run: bash scripts/verificar-escopo.sh
 
   # ------------------------------------------------------------------
   # SAST — OpenGrep sobre o código-fonte do DVWA
@@ -48,6 +59,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Modo desta execucao
+        run: echo "REMEDIAR=$REMEDIAR (false = build vermelho proposital)"
+
       - name: Clonar o código-fonte do alvo
         run: git clone --depth 1 "$DVWA_SRC" targets/dvwa
 
@@ -56,6 +70,7 @@ jobs:
       # laboratorio localmente continua vendo o DVWA vulneravel, que e o
       # objeto de estudo da turma.
       - name: Aplicar correcoes de remediacao
+        if: env.REMEDIAR == 'true'
         run: |
           cp patches/fix-sqli.php targets/dvwa/vulnerabilities/sqli/source/low.php
           echo "Patch aplicado em vulnerabilities/sqli/source/low.php"
@@ -88,20 +103,38 @@ jobs:
     # rodar sem o arquivo de override, o Compose ve que a configuracao do
     # dvwa nao bate com a do container em execucao e o RECRIA sem o volume
     # de hardening -- desfazendo a remediacao segundos antes do scan.
+    #
+    # Com REMEDIAR=false o override sai da lista e o DVWA sobe com o
+    # directory indexing do Apache ativo: o estado do build vermelho.
     env:
-      COMPOSE: "-f docker-compose.yml -f docker-compose.hardening.yml"
+      COMPOSE: ${{ (github.event_name != 'workflow_dispatch' || inputs.remediacao) && '-f docker-compose.yml -f docker-compose.hardening.yml' || '-f docker-compose.yml' }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Subir o DVWA com o override de remediacao
+      - name: Modo desta execucao
+        run: echo "REMEDIAR=$REMEDIAR  COMPOSE=$COMPOSE"
+
+      - name: Subir o DVWA
         run: docker compose $COMPOSE up -d dvwa
 
       - name: Conferir que o hardening esta ativo
+        if: env.REMEDIAR == 'true'
         run: |
           docker compose $COMPOSE exec -T dvwa \
             test -f /etc/apache2/conf-enabled/no-indexes.conf \
             || { echo "::error::Override de hardening nao foi montado."; exit 1; }
           echo "OK — no-indexes.conf presente no container."
+
+      # O espelho da verificacao acima. Sem ele, um build vermelho que
+      # subisse com o hardening por engano daria "0 achados" e seria lido
+      # como "o Nikto nao encontrou nada", nao como erro de configuracao.
+      - name: Conferir que o hardening NAO esta ativo
+        if: env.REMEDIAR != 'true'
+        run: |
+          docker compose $COMPOSE exec -T dvwa \
+            test ! -f /etc/apache2/conf-enabled/no-indexes.conf \
+            || { echo "::error::Hardening montado numa execucao sem remediacao."; exit 1; }
+          echo "OK — DVWA sem hardening, como o build vermelho exige."
 
       - name: Aguardar o DVWA responder
         run: |
@@ -144,40 +177,51 @@ jobs:
 
       - name: Gate SAST — nivel "error" (=HIGH) no SARIF
         id: sast
+        env:
+          # O gate conta so o modulo em remediacao, nao o DVWA inteiro.
+          # E assim que se adota SAST em codigo legado: mede-se tudo, e o
+          # gate comeca pelo que a equipe esta de fato corrigindo. Exigir
+          # zero no DVWA inteiro significaria corrigir as 25 vulnerabilidades
+          # que sao o objeto de estudo -- apagaria o alvo. Ampliar o escopo
+          # e trocar esta linha.
+          ESCOPO: 'vulnerabilities/sqli/'
         run: |
-          # Duas coisas acontecem aqui.
-          #
-          # 1. O OpenGrep nao escreve "level" em cada result: a severidade
-          #    fica na definicao da regra (defaultConfiguration) e o result
-          #    herda dela. Filtrar so por .level daria sempre zero.
-          #
-          # 2. A varredura cobre o DVWA inteiro -- o SARIF versionado tem os
-          #    58 achados. Mas o GATE conta so o modulo em remediacao,
-          #    $ESCOPO. E assim que se adota SAST em codigo legado: mede-se
-          #    tudo, e o gate comeca pelo que a equipe esta de fato
-          #    corrigindo. Ampliar o escopo e uma linha.
-          ESCOPO='vulnerabilities/sqli/'
-          N=$(jq --arg escopo "$ESCOPO" '
-            [ .runs[]
-              | (reduce (.tool.driver.rules[]?) as $r ({};
-                    .[$r.id] = $r.defaultConfiguration.level)) as $lv
-              | .results[]
-              | select(.locations[0].physicalLocation.artifactLocation.uri
-                       | contains($escopo))
-              | (.level // $lv[.ruleId] // "warning")
-            ] | map(select(. == "error")) | length
-          ' reports/opengrep-dvwa.sarif)
+          # O OpenGrep nao escreve "level" em cada result: a severidade fica
+          # na definicao da regra (tool.driver.rules[].defaultConfiguration)
+          # e o result herda dela. Filtrar so por .level daria sempre zero --
+          # foi o primeiro bug deste gate. Por isso montamos o mapa
+          # ruleId -> level antes de contar.
+          PROJECAO='
+            .runs[]
+            | (reduce (.tool.driver.rules[]?) as $r ({};
+                  .[$r.id] = $r.defaultConfiguration.level)) as $lv
+            | .results[]
+            | { nivel:   (.level // $lv[.ruleId] // "warning"),
+                regra:   (.ruleId // "?"),
+                arquivo: (.locations[0].physicalLocation.artifactLocation.uri // ""),
+                linha:   (.locations[0].physicalLocation.region.startLine // 0) }
+          '
+          NO_ESCOPO="[ $PROJECAO | select(.nivel == \"error\")
+                       | select(.arquivo | contains(\$escopo)) ]"
 
-          TOTAL_GERAL=$(jq '
-            [ .runs[]
-              | (reduce (.tool.driver.rules[]?) as $r ({};
-                    .[$r.id] = $r.defaultConfiguration.level)) as $lv
-              | .results[] | (.level // $lv[.ruleId] // "warning")
-            ] | map(select(. == "error")) | length
-          ' reports/opengrep-dvwa.sarif)
+          N=$(jq --arg escopo "$ESCOPO" "$NO_ESCOPO | length" \
+                 reports/opengrep-dvwa.sarif)
+          TOTAL_GERAL=$(jq "[ $PROJECAO | select(.nivel == \"error\") ] | length" \
+                 reports/opengrep-dvwa.sarif)
 
           echo "OpenGrep: $N achado(s) HIGH em $ESCOPO (de $TOTAL_GERAL no DVWA inteiro)"
-          echo "count=$N" >> "$GITHUB_OUTPUT"
+
+          # Lista o que foi contado. Sem isso o print do build vermelho
+          # mostra um numero sem dizer de onde ele veio.
+          jq -r --arg escopo "$ESCOPO" \
+             "$NO_ESCOPO | .[] | \"  - \(.arquivo):\(.linha)  \(.regra)\"" \
+             reports/opengrep-dvwa.sarif
+
+          {
+            echo "count=$N"
+            echo "total=$TOTAL_GERAL"
+            echo "escopo=$ESCOPO"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Gate DAST — achados da lista NIKTO_HIGH
         id: dast
@@ -187,23 +231,60 @@ jobs:
           # Nikto. O que importa e o diretorio /.git/ exposto, que vaza o
           # historico do codigo. Por isso a barra final.
           RE='phpinfo|/admin|Directory indexing|backup|/\.git/|test/|Default account'
-          N=$(jq --arg re "$RE" \
-               '[.. | objects | select(has("msg")) | select(.msg | test($re; "i"))] | length' \
-               reports/nikto-dvwa.json)
+
+          # O teste roda sobre url + msg, nao so sobre msg.
+          #
+          # No Nikto 2.1.5 a mensagem repetia o caminho ("GET /config/:
+          # /config/: Directory indexing found."), entao casar so em .msg
+          # funcionava por acidente. No 2.5.0 -- a versao que gerou o
+          # relatorio versionado -- o caminho ficou apenas em .url, e os
+          # padroes de caminho da lista (/admin, /.git/, backup, test/)
+          # deixaram de casar com qualquer coisa: o gate nao reprovaria nem
+          # um /.git/ exposto. Concatenar os dois campos devolve a intencao
+          # da politica sem mudar o veredito dos relatorios ja versionados
+          # (conferido nos dois: 2 achados antes e depois da mudanca).
+          FILTRO='[ .. | objects | select(has("msg"))
+                    | { url: (.url // "-"), msg: .msg }
+                    | select((.url + " " + .msg) | test($re; "i")) ]'
+
+          N=$(jq --arg re "$RE" "$FILTRO | length" reports/nikto-dvwa.json)
           echo "Nikto: $N achado(s) HIGH"
+          jq -r --arg re "$RE" "$FILTRO | .[] | \"  - \(.url)  \(.msg)\"" \
+             reports/nikto-dvwa.json
+
           echo "count=$N" >> "$GITHUB_OUTPUT"
 
       - name: Decisao do gate
         env:
           SAST_COUNT: ${{ steps.sast.outputs.count }}
+          SAST_TOTAL: ${{ steps.sast.outputs.total }}
+          SAST_ESCOPO: ${{ steps.sast.outputs.escopo }}
           DAST_COUNT: ${{ steps.dast.outputs.count }}
         run: |
           TOTAL=$(( SAST_COUNT + DAST_COUNT ))
           echo "SAST=$SAST_COUNT  DAST=$DAST_COUNT  TOTAL=$TOTAL"
+
+          # O resumo do job e o que vale como evidencia de build vermelho e
+          # verde: e mais legivel num print do que o log cru.
+          {
+            echo "### Gate de severidade"
+            echo ""
+            echo "Remediacao aplicada nesta execucao: \`$REMEDIAR\`"
+            echo ""
+            echo "| Ferramenta | Escopo contado | Achados HIGH |"
+            echo "|---|---|---|"
+            echo "| OpenGrep (SAST) | \`$SAST_ESCOPO\` — $SAST_TOTAL no DVWA inteiro | $SAST_COUNT |"
+            echo "| Nikto (DAST) | lista NIKTO_HIGH | $DAST_COUNT |"
+            echo "| **Total** | | **$TOTAL** |"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
           if [ "$TOTAL" -gt 0 ]; then
+            echo "**REPROVADO — deploy bloqueado.**" >> "$GITHUB_STEP_SUMMARY"
             echo "::error::Gate REPROVADO — $TOTAL achado(s) de severidade HIGH. Deploy bloqueado."
             exit 1
           fi
+          echo "**APROVADO — nenhum achado HIGH.**" >> "$GITHUB_STEP_SUMMARY"
           echo "Gate APROVADO — nenhum achado HIGH."
 
   # ------------------------------------------------------------------
@@ -271,11 +352,10 @@ jobs:
             git reset --hard origin/main
 
             # Mesma guarda de escopo, agora na VM: nao subir nada que
-            # publique o DVWA fora de localhost.
-            grep -q '127.0.0.1:8081:80' docker-compose.yml || {
-              echo "ERRO: docker-compose.yml exporia o DVWA publicamente."
-              exit 1
-            }
+            # publique o DVWA fora de localhost. E o mesmo script do job
+            # `guarda-de-escopo`, e aqui ele roda no modo estrito, porque a
+            # VM tem docker instalado.
+            bash scripts/verificar-escopo.sh
 
             # So o DVWA roda na VM. O opengrep e o nikto sao ferramentas de
             # analise, usadas no CI e no laboratorio local -- nao sao servicos

@@ -1,0 +1,37 @@
+# Codigo-fonte dos alvos -- clonado sob demanda, nunca versionado.
+#
+# O passo 0 do LAB.md manda clonar o DVWA em targets/dvwa, e o Apendice B
+# clona TerraGoat e NodeGoat em targets/. Sao repositorios de terceiros, com
+# dezenas de MB e historico proprio. Sem esta regra, um `git add .` de
+# qualquer integrante joga o DVWA inteiro dentro do repositorio do trabalho --
+# e o slide de avaliacao olha justamente o historico de commits do grupo.
+targets/
+
+# Relatorios: os do laboratorio SAO versionados, porque sao a evidencia
+# exigida pela secao 10 -- e isso inclui reports/tempos.txt, que guarda o
+# tempo de execucao medido de cada ferramenta (secao 6e). Por isso reports/
+# inteiro nao entra aqui: so o que e descartavel.
+reports/*.tmp
+reports/tmp-*
+
+# Segredos. Os do deploy vivem nos secrets do GitHub (ver DEPLOY.md), nunca
+# no repositorio -- e a chave dedicada ao CI tem o nome cp1_ci.
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+cp1_ci*
+.env
+.env.*
+
+# Preferencias locais de quem usa o Claude Code; o restante de .claude/
+# (o CLAUDE.md e o settings.json do projeto) e versionado de proposito.
+.claude/settings.local.json
+
+# Sistema operacional e editores
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+.idea/
+.vscode/

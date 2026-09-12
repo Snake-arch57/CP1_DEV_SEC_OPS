@@ -32,6 +32,19 @@ até o momento.
   e dos relatórios reais
 - Redação das três análises de achado do `LAB.md`, a partir dos dados das
   execuções — **pendente de revisão e reescrita pelo grupo** (ver 4.2)
+- Revisão de código de 2026-09-12 (Claude Code, Opus 5), sobre o pipeline e
+  os arquivos de apoio:
+  - `scripts/verificar-escopo.sh` — a guarda de escopo saiu do YAML para um
+    script único, usado pelo CI e pelo deploy
+  - chave `remediacao` no `workflow_dispatch`, que torna o build vermelho
+    reproduzível sob demanda
+  - correção do filtro `jq` do gate de DAST (passou a testar `url + msg`)
+  - `scripts/rodar-sca-iac.sh` e `scripts/resumir-achados.py`
+  - `.gitignore`, `reports/README.md` e `VIBE.md`
+  - reescrita de `patches/fix-sqli.php`, que não funcionava na imagem do
+    laboratório (ver 4.1)
+  - `scripts/testar-sqli.py`, que prova a correção na aplicação no ar
+  O detalhamento de cada mudança, com o motivo, está em `VIBE.md`
 
 ## 3. O que NÃO foi gerado por IA
 
@@ -105,6 +118,48 @@ gerado sem verificação"*. Esta seção registra o estado real da verificação
 
 ### 4.2 Pendente — a executar antes da entrega
 
+- [x] **Contagens reconferidas nos relatórios versionados** (2026-09-12):
+      OpenGrep 58 achados / 25 `error` / 2 `error` em `vulnerabilities/sqli/`;
+      Nikto 15 achados / 2 na lista `NIKTO_HIGH`. O gate atual, portanto, dá
+      `TOTAL=4` no build vermelho, e não os `28` citados no histórico do
+      `LAB.md` — os `28` são de antes de o escopo do gate ser restringido.
+      Recontável com `python3 scripts/resumir-achados.py`
+- [x] **Quinto erro, encontrado nessa revisão:** o filtro `jq` do gate de DAST
+      testava apenas o campo `msg`. Na Nikto 2.1.5 a mensagem repetia o
+      caminho, então os padrões de caminho da lista `NIKTO_HIGH` casavam por
+      acidente; na 2.5.0, que gerou o relatório versionado, o caminho ficou só
+      em `url`, e `/admin`, `/.git/`, `backup` e `test/` deixaram de casar com
+      qualquer coisa — um `/.git/` exposto passaria pelo gate. Corrigido para
+      testar `url + msg`; conferido que o veredito dos relatórios já
+      versionados não muda (2 achados antes e depois)
+- [x] **Guarda de escopo testada contra casos de exposição** (`8081:80`,
+      `0.0.0.0:`, outro IP da máquina, porta pública acrescentada ao lado do
+      bind local): a versão anterior deixava passar a porta acrescentada, a
+      atual reprova todas
+- [x] **Sexto erro, encontrado ao rodar de verdade:** o `patches/fix-sqli.php`
+      gerado com apoio de IA usava `$_DVWA['SQLI_DB']` e as constantes
+      `MYSQL`/`SQLITE`, que só existem no DVWA **atual** — a imagem do
+      laboratório roda o **DVWA 1.9**, que não as tem. Aplicado no container,
+      o patch enchia o log de `Undefined index: SQLI_DB` e a consulta
+      legítima passava a devolver **zero linha**: a página quebrava, e o
+      "sumiço" da injeção era só efeito disso. O patch também dava `echo` em
+      vez de acumular em `$html`, que é como a página monta a saída.
+      Reescrito para detectar a versão do DVWA em vez de assumir, e
+      verificado nas duas pontas — no relatório do SAST e na aplicação no ar
+- [x] **Correção verificada na aplicação em execução**, não só no relatório:
+      `scripts/testar-sqli.py` mostra a injeção devolvendo as 5 linhas da
+      tabela antes do patch e no máximo 1 depois, sem nenhum notice de PHP
+- [x] **Programas `jq` do gate executados** contra os relatórios reais, com
+      os dois vereditos: `SAST=2 DAST=2 TOTAL=4` reprova, `0 e 0` aprova
+- [x] **Afirmação do `LAB.md` conferida por execução:** o total de achados
+      `error` do OpenGrep cai de 25 para 23 com o patch, e o escopo do gate
+      vai a zero. Os relatórios pós-remediação estão versionados
+- [x] **Suposição da IA que NÃO se confirmou:** a revisão trocou
+      `mysqli_stmt_get_result()` por `bind_result` alegando que a função
+      poderia não existir na imagem. Conferido: a imagem tem PHP 7.0.30 com
+      mysqlnd e a função **existe**. O `bind_result` ficou porque funciona em
+      qualquer build e não custa nada, mas o motivo registrado no arquivo foi
+      corrigido — a justificativa original era uma suposição, não um fato
 - [ ] **Reescrever as três análises de achado do `LAB.md` com as palavras do
       grupo.** Os dados são reais (vieram dos relatórios em `reports/`), mas a
       redação saiu da IA. O enunciado avalia análise crítica **própria**, e
@@ -114,8 +169,9 @@ gerado sem verificação"*. Esta seção registra o estado real da verificação
       encontrado, consultando a base MITRE e não a sugestão da IA
 - [ ] Executar o `LAB.md` inteiro **em máquina que não é a de nenhum
       integrante** — exigência explícita do enunciado, ainda não cumprida
-- [ ] Rodar Snyk e Terrascan (Apêndice B) e versionar os relatórios; sem isso
-      não há evidência para duas das quatro ferramentas
+- [ ] Rodar o **Snyk** (`SNYK_TOKEN=<token> bash scripts/rodar-sca-iac.sh`).
+      É a única das quatro ferramentas sem evidência de execução — exige
+      token de conta. O Terrascan já rodou: 67 violações no TerraGoat
 - [ ] Medir tempo de execução e taxa de falso positivo de cada uma das 4
       ferramentas, para a seção 6(e) do documento
 - [ ] Capturar os prints de build vermelho e verde para `evidencias/`

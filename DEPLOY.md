@@ -4,10 +4,14 @@ Configuração do job `deploy` do workflow `.github/workflows/security-gate.yml`
 Faça na ordem. Os passos 1 a 4 são feitos **uma única vez**.
 
 > **Antes de começar, entenda o comportamento esperado:** o job `deploy` só roda
-> se o job `security-gate` passar. Com o DVWA em Security Level **Low**, o gate
-> **falha de propósito** — é o "build vermelho" exigido pelo requisito 5 do
-> enunciado. Ou seja: enquanto os achados HIGH existirem, **o deploy não
-> acontece**. Isso é o desenho correto, não um defeito.
+> se o job `security-gate` passar. Enquanto existirem achados HIGH, **o deploy
+> não acontece** — esse é o desenho correto, não um defeito.
+>
+> Hoje o pipeline aplica as duas correções (`patches/fix-sqli.php` e o
+> override de hardening) em todo `push` e `pull_request`, então o gate passa e
+> o deploy roda. O **build vermelho** exigido pelo requisito 5 se reproduz sob
+> demanda, em *Actions > security-gate > Run workflow*, **desmarcando**
+> `remediacao`.
 
 ---
 
@@ -181,17 +185,28 @@ Acompanhe em **Actions > security-gate**.
 
 ## 6. O que esperar na primeira execução
 
+Num `push` na `main` (com as correções aplicadas, que é o padrão):
+
 | Job | Resultado esperado |
 |---|---|
-| `guarda-de-escopo` | ✅ verde — o bind `127.0.0.1` está correto |
+| `guarda-de-escopo` | ✅ verde — nenhuma porta do compose sai de `127.0.0.1` |
 | `sast-opengrep` | ✅ verde — o job roda; os achados não o derrubam |
 | `dast-nikto` | ✅ verde — idem |
-| `security-gate` | ❌ **vermelho** — SQL Injection + directory indexing |
-| `config-do-deploy` | ⏭️ pulado — o gate falhou |
-| `deploy` | ⏭️ pulado |
+| `security-gate` | ✅ verde — 0 achados HIGH em escopo |
+| `config-do-deploy` | ✅ verde — secrets presentes |
+| `deploy` | ▶️ executa |
 
-**Esse vermelho é o entregável.** Tire print: é a "evidência de build vermelho"
-exigida pelo requisito 5. Salve em `evidencias/`.
+Rodando à mão com `remediacao` **desmarcada**:
+
+| Job | Resultado esperado |
+|---|---|
+| `security-gate` | ❌ **vermelho** — `SAST=2 DAST=2 TOTAL=4` |
+| `config-do-deploy` | ⏭️ pulado — o gate falhou |
+| `deploy` | ⏭️ pulado (e não roda em `workflow_dispatch` de todo jeito) |
+
+**Esse vermelho é o entregável.** Tire print da aba *Summary* do job
+`security-gate`, que traz a tabela de contagem — é a "evidência de build
+vermelho" exigida pelo requisito 5. Salve em `evidencias/`.
 
 ---
 
@@ -200,7 +215,8 @@ exigida pelo requisito 5. Salve em `evidencias/`.
 Para o gate passar, os dois contadores precisam zerar:
 
 1. **SQL Injection (OpenGrep):** aplicar `patches/fix-sqli.php` — troca a
-   concatenação por prepared statement com PDO.
+   concatenação por prepared statement com bind de parâmetro (`mysqli_prepare`
+   + `mysqli_stmt_bind_param`, e `SQLite3::prepare` no caminho SQLite).
 2. **Directory indexing (Nikto):** desabilitar o autoindex do Apache no alvo
    (`Options -Indexes`), eliminando os achados em `/config/` e `/docs/`.
 
@@ -238,5 +254,5 @@ do túnel SSH.
 | `ssh: handshake failed` | Chave privada incompleta no secret | Regravar com `gh secret set ... < arquivo`, não por copiar/colar |
 | `permission denied` no `/opt/...` | Passo 1 não executado | `sudo chown -R "$(id -un)" /opt/CP1_DEV_SEC_OPS` |
 | `docker: permission denied` na VM | Usuário fora do grupo `docker` | `sudo usermod -aG docker "$(id -un)"` e **reconectar** |
-| Deploy aborta com "exporia o DVWA" | Bind alterado no `docker-compose.yml` | Restaurar `127.0.0.1:8081:80` |
+| Deploy aborta na guarda de escopo | Bind alterado no `docker-compose.yml` | Restaurar `127.0.0.1:8081:80` e conferir com `bash scripts/verificar-escopo.sh` |
 | `git reset --hard` falha | Alteração manual feita na VM | É esperado: a VM é descartável, não edite nada lá |

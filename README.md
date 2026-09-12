@@ -31,8 +31,8 @@ recebe nota zero no trabalho.
 |---|---|---|---|
 | SAST | OpenGrep | ✅ Ferramenta A | ✅ `reports/opengrep-dvwa.sarif` |
 | DAST | Nikto | ✅ Ferramenta B | ✅ `reports/nikto-dvwa.json` |
-| SCA | Snyk Open Source | execução offline | ⬜ **ainda não executado** |
-| IaC | Terrascan | execução offline | ⬜ **ainda não executado** |
+| SCA | Snyk Open Source | execução offline | ⬜ **ainda não executado** — falta token, `scripts/rodar-sca-iac.sh` |
+| IaC | Terrascan | execução offline | ✅ `reports/terrascan-terragoat.json` |
 
 As 2 do laboratório conduzido são de **categorias diferentes** (SAST + DAST),
 conforme exige a seção 5.3.
@@ -105,6 +105,11 @@ dast-nikto ───────┘
 | `security-gate` | soma os achados HIGH das duas e quebra o build se houver algum |
 | `deploy` | publica na VM Azure — **só** em push na `main` e **só** com o gate verde |
 
+Em `push` e `pull_request` o pipeline aplica as duas correções antes de medir,
+e o gate passa. O **build vermelho** se reproduz em *Actions > security-gate >
+Run workflow* com a opção `remediacao` **desmarcada** — os dois prints que o
+requisito 5 exige saem daí.
+
 ### Mapeamento de severidade
 
 O enunciado pede gate em HIGH/CRITICAL; nenhuma das duas ferramentas usa esses
@@ -135,12 +140,25 @@ antes de contar — filtrar direto pelo campo `level` do resultado retorna zero.
 ├── LAB.md                           # roteiro do laboratório (12 min)
 ├── DEPLOY.md                        # preparação da VM Azure e secrets
 ├── USO-DE-IA.md                     # declaração de uso de IA (seção 10)
+├── VIBE.md                          # registro do que foi feito no código
+├── Relatorio-Revisao-Codigo-2026-09-12.pdf   # relatório da revisão de código
 ├── docker-compose.yml               # DVWA + OpenGrep + Nikto
+├── docker-compose.hardening.yml     # override de remediação (CI e deploy)
 ├── Dockerfile                       # imagem do OpenGrep
+├── .gitignore                       # mantém targets/ fora do repositório
+├── CLAUDE.md                        # regras do repo para o Claude Code
+├── .claude/                         # contexto de apoio ao Claude Code
 ├── .github/workflows/
 │   └── security-gate.yml            # pipeline com gate e deploy
+├── hardening/
+│   └── no-indexes.conf              # Options -Indexes (correção do DAST)
 ├── patches/
-│   └── fix-sqli.php                 # correção usada no build verde
+│   └── fix-sqli.php                 # correção do SQLi (correção do SAST)
+├── scripts/
+│   ├── verificar-escopo.sh          # guarda de escopo (CI + VM)
+│   ├── rodar-sca-iac.sh             # executa Terrascan e Snyk
+│   ├── testar-sqli.py               # prova a correção na aplicação no ar
+│   └── resumir-achados.py           # conta os achados dos 4 relatórios
 ├── reports/                         # relatórios de saída versionados
 └── evidencias/                      # prints de build vermelho e verde
 ```
@@ -152,3 +170,12 @@ antes de contar — filtrar direto pelo campo `level` do resultado retorna zero.
 - **[LAB.md](LAB.md)** — roteiro conduzido, troubleshooting e análise dos achados
 - **[DEPLOY.md](DEPLOY.md)** — preparação da VM, chave de CI, secrets e NSG
 - **[USO-DE-IA.md](USO-DE-IA.md)** — o que foi gerado com IA e como foi validado
+- **[VIBE.md](VIBE.md)** — registro do trabalho de código: o que mudou, por quê
+  e o que ficou pendente
+- **[Relatorio-Revisao-Codigo-2026-09-12.pdf](Relatorio-Revisao-Codigo-2026-09-12.pdf)**
+  — o mesmo conteúdo em relatório fechado, para anexar ou imprimir
+- **[reports/README.md](reports/README.md)** — o que cada relatório contém, com
+  os números conferidos
+- **[evidencias/execucao-local-2026-09-12.md](evidencias/execucao-local-2026-09-12.md)**
+  — execução local completa: gate nas duas pontas, tempos medidos, e a prova
+  de que as duas correções funcionam

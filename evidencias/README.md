@@ -17,9 +17,21 @@ disparada em *Actions > security-gate > Run workflow* com a opção
 `remediacao` **desmarcada**.
 
 ```
+OpenGrep: 2 achado(s) HIGH em vulnerabilities/sqli/ (de 25 no DVWA inteiro)
+  - /src/vulnerabilities/sqli/source/low.php:10  ...tainted-sql-string
+  - /src/vulnerabilities/sqli/source/low.php:31  ...tainted-sql-string
+
+Nikto: 2 achado(s) HIGH
+  - /config/  Directory indexing found.
+  - /docs/    Directory indexing found.
+
 SAST=2  DAST=2  TOTAL=4
 Gate REPROVADO — 4 achado(s) de severidade HIGH. Deploy bloqueado.
 ```
+
+O print traz os quatro achados **nomeados**, com arquivo, linha e regra. É a
+rastreabilidade que o passo 5 do `LAB.md` pede: o achado que a turma procura
+no SARIF durante o passo 3 é literalmente o mesmo que derruba o build.
 
 | Job | Resultado |
 |---|---|

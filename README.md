@@ -141,7 +141,8 @@ antes de contar — filtrar direto pelo campo `level` do resultado retorna zero.
 ├── DEPLOY.md                        # preparação da VM Azure e secrets
 ├── USO-DE-IA.md                     # declaração de uso de IA (seção 10)
 ├── VIBE.md                          # registro do que foi feito no código
-├── Relatorio-Revisao-Codigo-2026-09-12.pdf   # relatório da revisão de código
+├── docs/
+│   └── revisao-de-codigo-2026-09-12.pdf  # relatório da revisão de código
 ├── docker-compose.yml               # DVWA + OpenGrep + Nikto
 ├── docker-compose.hardening.yml     # override de remediação (CI e deploy)
 ├── Dockerfile                       # imagem do OpenGrep
@@ -172,7 +173,7 @@ antes de contar — filtrar direto pelo campo `level` do resultado retorna zero.
 - **[USO-DE-IA.md](USO-DE-IA.md)** — o que foi gerado com IA e como foi validado
 - **[VIBE.md](VIBE.md)** — registro do trabalho de código: o que mudou, por quê
   e o que ficou pendente
-- **[Relatorio-Revisao-Codigo-2026-09-12.pdf](Relatorio-Revisao-Codigo-2026-09-12.pdf)**
+- **[docs/revisao-de-codigo-2026-09-12.pdf](docs/revisao-de-codigo-2026-09-12.pdf)**
   — o mesmo conteúdo em relatório fechado, para anexar ou imprimir
 - **[reports/README.md](reports/README.md)** — o que cada relatório contém, com
   os números conferidos

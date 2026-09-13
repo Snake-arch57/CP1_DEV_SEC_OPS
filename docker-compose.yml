@@ -9,6 +9,12 @@ services:
   dvwa:
     image: vulnerables/web-dvwa:latest
     container_name: dvwa
+    # Sobe sozinho depois de um reboot da maquina. Sem isso, reiniciar a VM
+    # do deploy deixa o DVWA fora do ar ate alguem rodar `up` a mao -- e a
+    # demonstracao do deploy fica indisponivel justamente no dia.
+    # `unless-stopped` respeita um `docker compose down` deliberado: o
+    # passo 7 do LAB.md continua derrubando o ambiente de verdade.
+    restart: unless-stopped
     ports:
       - "127.0.0.1:8081:80"
     networks:

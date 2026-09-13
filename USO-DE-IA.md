@@ -46,6 +46,24 @@ até o momento.
   - `scripts/testar-sqli.py`, que prova a correção na aplicação no ar
   O detalhamento de cada mudança, com o motivo, está em `VIBE.md`
 
+### Arquivos de instrução para a própria IA
+
+O repositório versiona também a configuração que orienta a ferramenta de IA
+quando ela atua sobre este projeto. Estão declarados aqui porque a seção 10
+exige transparência sobre o uso — omiti-los seria esconder justamente a parte
+mais visível do processo.
+
+| Arquivo | O que é |
+|---|---|
+| `CLAUDE.md` | as duas regras inegociáveis do projeto (nenhuma porta fora de `127.0.0.1`, nenhum alvo fora da lista da seção 7) e três hábitos que o enunciado cobra |
+| `.claude/contexto.md` | contexto do projeto: as 4 ferramentas, como o gate decide, onde cada coisa está, o que falta |
+| `.claude/README.md` | explica para que serve o diretório |
+
+O conteúdo do `CLAUDE.md` **não é configuração de conveniência**: é a regra de
+ética da seção 7 escrita como política versionada, com o script que a verifica
+(`scripts/verificar-escopo.sh`) ao lado. Vale para qualquer pessoa que
+contribua no repositório, com ou sem IA.
+
 ## 3. O que NÃO foi gerado por IA
 
 Decisões técnicas e de conteúdo tomadas pelo grupo:

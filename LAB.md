@@ -793,6 +793,8 @@ correspondente já foi atualizado com o output real — os dois andam juntos:
 - [x] Nomes/tags das imagens confirmados em execução real
 - [x] Pipeline integra **as 2 ferramentas** (`sast-opengrep` e `dast-nikto`)
 - [x] Gate de severidade funcionando, com build vermelho e verde reproduzidos
+- [x] **Prints de build vermelho e verde** versionados em `evidencias/`, com
+      os números e os links das duas execuções no `evidencias/README.md`
 - [x] Relatórios do OpenGrep e do Nikto versionados em `reports/`
 - [x] 2 perguntas de verificação definidas para a turma (passo 6)
 - [x] `USO-DE-IA.md` preenchido e versionado na raiz
@@ -832,9 +834,6 @@ correspondente já foi atualizado com o output real — os dois andam juntos:
       totais e os tempos já estão medidos (`reports/tempos.txt`,
       `python3 scripts/resumir-achados.py`); o que falta é a classificação —
       análise do grupo, que nenhum script decide
-- [ ] **Prints de build vermelho e verde** salvos em `evidencias/`. O job
-      `security-gate` agora imprime a tabela de contagem no resumo da
-      execução (aba *Summary*) — é dali que sai o print legível, não do log
 - [ ] **Vídeo de plano B**, 5 a 8 minutos (3 pts)
 - [ ] **Testar o `LAB.md` em máquina que não é de nenhum integrante** —
       exigência explícita do enunciado

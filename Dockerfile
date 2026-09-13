@@ -13,4 +13,11 @@ RUN apt-get update \
 
 WORKDIR /src
 
-ENTRYPOINT ["opengrep"]
+# O entrypoint confere que /src tem conteudo antes de chamar o opengrep.
+# Sem essa guarda, quem pular o clone do alvo (passo 0 do LAB.md) recebe
+# "0 findings" com codigo de saida 0 -- um falso sucesso, que so aparece
+# na hora da demonstracao.
+COPY entrypoint-opengrep.sh /usr/local/bin/entrypoint-opengrep.sh
+RUN chmod +x /usr/local/bin/entrypoint-opengrep.sh
+
+ENTRYPOINT ["/usr/local/bin/entrypoint-opengrep.sh"]

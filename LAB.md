@@ -107,12 +107,23 @@ Comandos de preparação:
 ```bash
 git clone https://github.com/Snake-arch57/CP1_DEV_SEC_OPS.git
 cd CP1_DEV_SEC_OPS
-docker compose pull      # baixa DVWA e Nikto
-docker compose build     # compila a imagem do OpenGrep (ver nota abaixo)
+docker compose pull            # baixa DVWA e Nikto
+docker compose build           # compila a imagem do OpenGrep (ver nota abaixo)
+bash scripts/preparar-alvo.sh  # clona o codigo-fonte do DVWA (ver nota abaixo)
 ```
 
-Verificação: `docker images | grep -E "dvwa|opengrep|nikto"` deve retornar as
-três imagens.
+Verificações:
+
+```bash
+docker images | grep -E "dvwa|opengrep|nikto"   # as três imagens
+ls targets/dvwa/vulnerabilities/sqli/source/    # o alvo do passo 2
+```
+
+A segunda é a que mais se esquece. Se `targets/dvwa` estiver vazio, o passo 2
+**falha com mensagem explicando o que fazer** — a imagem do OpenGrep confere o
+diretório antes de varrer. Antes dessa guarda, o OpenGrep varria o diretório
+vazio e reportava "0 findings" com sucesso, o que parece resultado válido e só
+aparece como problema na hora da demonstração.
 
 ### Comandos de download de cada imagem (exigido no README.md do repositório)
 
@@ -138,15 +149,21 @@ docker compose build opengrep    # OpenGrep é compilado, não baixado
 > OpenGrep é um fork.
 
 > **O OpenGrep analisa o código-fonte do DVWA, não a imagem em execução.** O
-> serviço monta `./targets/dvwa` como `/src`. Antes do passo 2, clonar o
-> código-fonte:
+> serviço monta `./targets/dvwa` como `/src`, e esse diretório **não vem com o
+> repositório** — está no `.gitignore`, porque versionar um repositório de
+> terceiros poluiria o histórico de commits do grupo, que é avaliado.
+>
+> O `scripts/preparar-alvo.sh` resolve isso: clona se ainda não existe, não faz
+> nada se já existe, e confere que o arquivo do passo 3 está lá. O equivalente
+> manual é:
 >
 > ```bash
 > git clone https://github.com/digininja/DVWA.git targets/dvwa
 > ```
 >
 > Esse é o contraste central do laboratório: o SAST precisa do **código**, o
-> DAST precisa da **aplicação no ar**.
+> DAST precisa da **aplicação no ar**. São insumos diferentes, e é por isso que
+> uma ferramenta sozinha não substitui a outra.
 
 ---
 
@@ -498,7 +515,8 @@ docker compose down -v
 |---|---|---|
 | `docker compose up` falha na porta 8081 | Porta já em uso na máquina | Editar `docker-compose.yml` para outra porta (ex. `8082:80`) |
 | DVWA carrega mas login falha | Banco não inicializado | Voltar a `setup.php` e clicar em Create/Reset Database |
-| OpenGrep retorna 0 findings | Volume `/src` não aponta para a pasta certa | Conferir `volumes:` no `docker-compose.yml` |
+| OpenGrep para com "o diretorio do alvo esta vazio" | `targets/dvwa` não foi clonado (passo 0) | `bash scripts/preparar-alvo.sh` |
+| OpenGrep retorna 0 findings **com o alvo presente** | Volume `/src` não aponta para a pasta certa | Conferir `volumes:` no `docker-compose.yml` |
 | OpenGrep falha ao baixar `p/php` | Sem acesso ao registry de regras | Usar regras locais (`--config=./rules/`) versionadas no repo |
 | Nikto não conecta em `http://dvwa:80` | Container do Nikto fora da rede do compose | Confirmar que os serviços estão na mesma `network:` do `docker-compose.yml` |
 | Nikto gera JSON vazio | Versão da imagem ignora `-Format json` | Gerar `-Format xml` e ajustar o filtro do gate |

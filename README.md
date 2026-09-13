@@ -58,18 +58,27 @@ docker compose build opengrep
 > script oficial do projeto, com a versão fixada em `v1.22.0` para que todos
 > rodem exatamente o mesmo build.
 
-O SAST analisa o **código-fonte** do DVWA, não a imagem em execução. Clone-o
-antes do passo 2 do laboratório:
+O SAST analisa o **código-fonte** do DVWA, não a imagem em execução — e esse
+código **não vem com o repositório**. Prepare o alvo antes do passo 2:
 
 ```bash
-git clone https://github.com/digininja/DVWA.git targets/dvwa
+bash scripts/preparar-alvo.sh
 ```
+
+O script clona o DVWA em `targets/dvwa` se ainda não existir, e não faz nada se
+já existir. O equivalente manual é
+`git clone https://github.com/digininja/DVWA.git targets/dvwa`.
 
 Verificação:
 
 ```bash
-docker images | grep -E "dvwa|opengrep|nikto"
+docker images | grep -E "dvwa|opengrep|nikto"   # as três imagens
+ls targets/dvwa/vulnerabilities/sqli/source/    # o alvo do passo 2
 ```
+
+> Se esquecer o alvo, o passo 2 **falha com mensagem dizendo o que fazer** — a
+> imagem do OpenGrep confere o diretório antes de varrer, em vez de reportar
+> "0 findings" e sair com sucesso.
 
 ---
 
@@ -155,7 +164,9 @@ antes de contar — filtrar direto pelo campo `level` do resultado retorna zero.
 │   └── no-indexes.conf              # Options -Indexes (correção do DAST)
 ├── patches/
 │   └── fix-sqli.php                 # correção do SQLi (correção do SAST)
+├── entrypoint-opengrep.sh            # guarda: falha se o alvo do SAST estiver vazio
 ├── scripts/
+│   ├── preparar-alvo.sh             # clona o codigo-fonte do DVWA
 │   ├── verificar-escopo.sh          # guarda de escopo (CI + VM)
 │   ├── rodar-sca-iac.sh             # executa Terrascan e Snyk
 │   ├── testar-sqli.py               # prova a correção na aplicação no ar

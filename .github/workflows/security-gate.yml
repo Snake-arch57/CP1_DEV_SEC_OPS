@@ -21,7 +21,6 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  DVWA_SRC: https://github.com/digininja/DVWA.git
 
   # Liga/desliga as duas correcoes (patch do SQLi e override de hardening) em
   # UM lugar so. O requisito 5 da secao 5.3 exige demonstrar build vermelho E
@@ -62,8 +61,11 @@ jobs:
       - name: Modo desta execucao
         run: echo "REMEDIAR=$REMEDIAR (false = build vermelho proposital)"
 
-      - name: Clonar o código-fonte do alvo
-        run: git clone --depth 1 "$DVWA_SRC" targets/dvwa
+      # O mesmo script que o LAB.md manda a turma rodar. Duas formas de
+      # preparar o alvo divergiriam, e o CI deixaria de testar o caminho que
+      # a turma percorre.
+      - name: Preparar o código-fonte do alvo
+        run: bash scripts/preparar-alvo.sh
 
       # targets/dvwa nao esta versionado: e clonado fresco a cada execucao.
       # Aplicar o patch aqui corrige so a copia do CI -- quem rodar o

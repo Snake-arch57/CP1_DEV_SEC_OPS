@@ -31,7 +31,7 @@ recebe nota zero no trabalho.
 |---|---|---|---|
 | SAST | OpenGrep | ✅ Ferramenta A | ✅ `reports/opengrep-dvwa.sarif` |
 | DAST | Nikto | ✅ Ferramenta B | ✅ `reports/nikto-dvwa.json` |
-| SCA | Snyk Open Source | execução offline | ⬜ **ainda não executado** — falta token, `scripts/rodar-sca-iac.sh` |
+| SCA | Snyk Open Source | execução offline | ✅ `reports/snyk-nodegoat.json` |
 | IaC | Terrascan | execução offline | ✅ `reports/terrascan-terragoat.json` |
 
 As 2 do laboratório conduzido são de **categorias diferentes** (SAST + DAST),

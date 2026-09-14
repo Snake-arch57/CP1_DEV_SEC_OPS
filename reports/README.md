@@ -17,7 +17,7 @@ python3 scripts/resumir-achados.py
 | `nikto-dvwa.json` / `.txt` | Nikto (DAST) | antes da remediação |
 | `nikto-dvwa-remediado.json` | Nikto (DAST) | depois da remediação |
 | `terrascan-terragoat.json` | Terrascan (IaC) | alvo TerraGoat |
-| `snyk-nodegoat.json` | Snyk (SCA) | **ainda não existe** |
+| `snyk-nodegoat.json` | Snyk (SCA) | alvo NodeGoat |
 | `tempos.txt` | — | tempo medido de cada execução |
 | `resumo-achados.md` | — | tabela gerada pelo script |
 
@@ -103,13 +103,45 @@ Por provedor: AWS 42, Azure 14, GCP 11. Três exemplos HIGH estão em
 [`../evidencias/execucao-local-2026-09-12.md`](../evidencias/execucao-local-2026-09-12.md),
 para a análise crítica.
 
-## Snyk Open Source (SCA) — ainda não executado
+## Snyk Open Source (SCA) — `snyk-nodegoat.json`
 
-É a única das quatro ferramentas sem evidência. Precisa de token de conta:
+Alvo: **OWASP NodeGoat** (`npm`), da lista autorizada da seção 7.
+Execução em **10 s**, sobre **341 dependências** declaradas.
+
+| Severidade | Achados |
+|---|---|
+| CRITICAL | 0 |
+| HIGH | 170 |
+| MEDIUM | 68 |
+| LOW | 133 |
+| **Total** | **371** |
+
+### Dois números, e a diferença entre eles
+
+O relatório traz `"uniqueCount": 80` ao lado dos 371 achados. São **371
+caminhos de dependência** levando a **80 vulnerabilidades distintas** — o
+mesmo CVE alcançado por rotas diferentes na árvore de pacotes.
+
+Essa distinção não existe nas outras três categorias. No SAST, um achado é uma
+ocorrência no código; no SCA, um achado é um *caminho até* um pacote
+vulnerável. Comparar totais brutos entre categorias leva à conclusão errada.
+
+### Por que o SCA encontra tanto
+
+371 achados, contra 140 das outras três somadas. Não é a ferramenta ser
+melhor: é a categoria olhar outra coisa. O SCA consulta uma base de
+vulnerabilidades conhecidas contra as dependências declaradas — e um projeto
+Node arrasta centenas de pacotes transitivos que ninguém da equipe escolheu
+diretamente.
+
+É o ponto que o enunciado chama de "a confusão mais comum da disciplina:
+SAST não é SCA". Aqui ele está medido, com dados do grupo.
+
+### Reproduzir
 
 ```bash
 SNYK_TOKEN=<seu-token> bash scripts/rodar-sca-iac.sh
 ```
 
-Sem isso não há como responder a seção 6(e) para ela — nem tempo de execução,
-nem total de achados, nem taxa de falso positivo.
+Token gratuito em snyk.io > Account settings. **Nunca commitem o token** — o
+`.gitignore` bloqueia `.env`, mas o certo é não escrever em arquivo nenhum.

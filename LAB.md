@@ -70,7 +70,7 @@ qualquer coisa que não seja o container local está fora do escopo autorizado.
 | Categoria | Ferramenta | No lab ao vivo? | Evidência versionada |
 |---|---|---|---|
 | SAST | OpenGrep | Sim — Ferramenta A (passo 2) | ✅ `reports/opengrep-dvwa.sarif` |
-| SCA | Snyk Open Source | Não — execução offline | ⬜ **ainda não executado** |
+| SCA | Snyk Open Source | Não — execução offline | ✅ `reports/snyk-nodegoat.json` |
 | IaC | Terrascan | Não — execução offline | ✅ `reports/terrascan-terragoat.json` |
 | DAST | Nikto | Sim — Ferramenta B (passo 4) | ✅ `reports/nikto-dvwa.json` |
 
@@ -80,19 +80,40 @@ avaliação crítica) para as **4** ferramentas. O **laboratório conduzido**
 usa só **2**, de categorias diferentes — escolhemos OpenGrep (SAST) e
 Nikto (DAST) porque ambas se aplicam diretamente ao DVWA como alvo.
 
-> **Atenção — Snyk e Terrascan também precisam ser executados.** A seção 6(e)
-> exige, para cada uma das 4 ferramentas, a "taxa de falsos positivos
-> **observada no laboratório**" e o "tempo de execução **no projeto testado**".
-> A seção 10 reforça: "toda afirmação técnica deve ser verificável... deve
-> haver evidência disso nos relatórios versionados", e a rubrica dá 5 pts para
-> "relatórios de saída versionados" e 5 pts para "análise crítica própria".
-> Por isso Snyk e Terrascan rodam **fora dos 12 minutos**, contra alvos
-> autorizados que façam sentido para cada categoria — ver
+> **Por que Snyk e Terrascan também foram executados.** A seção 6(e) exige,
+> para cada uma das 4 ferramentas, a "taxa de falsos positivos **observada no
+> laboratório**" e o "tempo de execução **no projeto testado**". A seção 10
+> reforça: "toda afirmação técnica deve ser verificável... deve haver evidência
+> disso nos relatórios versionados", e a rubrica dá 5 pts para "relatórios de
+> saída versionados" e 5 pts para "análise crítica própria".
+> Por isso os dois rodam **fora dos 12 minutos**, contra alvos autorizados que
+> façam sentido para cada categoria — ver
 > [Apêndice B](#apêndice-b--execuções-complementares-snyk-e-terrascan).
->
-> **Estado:** o Terrascan já rodou (67 violações no TerraGoat, 10 s,
-> `reports/terrascan-terragoat.json`). O **Snyk continua sem execução** — é a
-> única das quatro sem nenhuma evidência, e ele exige token de conta.
+
+### As quatro execuções, com os números medidos
+
+| Ferramenta | Categoria | Alvo | Achados | HIGH | Tempo |
+|---|---|---|---|---|---|
+| OpenGrep | SAST | DVWA | 58 | 25 | 31 s |
+| Nikto | DAST | DVWA | 15 | 2 | 6 s |
+| Terrascan | IaC | TerraGoat | 67 | 35 | 11 s |
+| Snyk Open Source | SCA | NodeGoat | **371** | **170** | 10 s |
+
+Tabela gerada por `scripts/resumir-achados.py` a partir dos arquivos em
+`reports/` — os números não são digitados à mão em lugar nenhum.
+
+**O contraste que o enunciado chama de "confusão mais comum da disciplina":**
+o Snyk sozinho encontrou mais que as outras três somadas (371 contra 140). Não
+é a ferramenta ser melhor — é a **categoria** ser outra. O SCA conta
+vulnerabilidades conhecidas em dependências de terceiros, e o NodeGoat arrasta
+341 pacotes. O SAST olha o código que a equipe escreveu; o DAST, a superfície
+exposta em execução.
+
+Repare também no `uniqueCount` do relatório do Snyk: **80**. São 371 caminhos
+de dependência levando a 80 vulnerabilidades distintas — o mesmo CVE alcançado
+por rotas diferentes na árvore. Contar achados e contar vulnerabilidades são
+coisas diferentes no SCA, e essa distinção não existe nas outras três
+categorias.
 
 ---
 
@@ -818,15 +839,12 @@ correspondente já foi atualizado com o output real — os dois andam juntos:
 - [x] **Relatórios pós-remediação versionados**
       (`opengrep-dvwa-remediado.sarif`, `nikto-dvwa-remediado.json`),
       comprovando os números do build verde
+- [x] **As 4 ferramentas executadas**, com relatório versionado em `reports/`
+      e tempo medido em `reports/tempos.txt`. O Snyk fechou a lista: 371
+      achados (170 HIGH) em 341 dependências do NodeGoat, 10 s
 
 ### Falta — em ordem de peso na nota
 
-- [ ] **Rodar o Snyk.** É a única das quatro ferramentas sem nenhuma
-      evidência de execução, e isso afeta três frentes: relatórios
-      versionados (5 pts), análise crítica própria (5 pts) e cobertura do
-      roteiro da seção 6 (10 pts). Já está automatizado — falta o token:
-      `SNYK_TOKEN=<seu-token> bash scripts/rodar-sca-iac.sh`.
-      Token gratuito em snyk.io > Account settings. **Não commitem o token**
 - [ ] **Reescrever as três análises de achado com as palavras do grupo.** Os
       dados são reais, mas a redação saiu da IA. Vale 8 pts e qualquer
       integrante pode ser questionado sobre elas na apresentação

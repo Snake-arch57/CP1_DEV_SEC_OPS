@@ -133,6 +133,18 @@ gerado sem verificação"*. Esta seção registra o estado real da verificação
       diretório `/.git/` exposto. Verdadeiro positivo da ferramenta, falso
       positivo da regra que o grupo escreveu em volta dela. Analisado no
       `LAB.md`, achado nº 3
+- [x] **As 4 ferramentas executadas**, cada uma com relatório versionado em
+      `reports/` e tempo medido em `reports/tempos.txt`. O Snyk foi o último:
+      371 achados (170 HIGH) em 341 dependências do NodeGoat, 10 s
+- [x] **Quinto erro da IA, e o mais instrutivo:** o `scripts/rodar-sca-iac.sh`
+      montava o NodeGoat em `/project`, mas a imagem `snyk/snyk:node` tem
+      `WORKDIR /app` e o `snyk test` analisa o diretório atual. O Snyk varria
+      um diretório vazio e respondia "Could not detect supported target files
+      in /app" — com o token perfeitamente válido. Pior: a mensagem de falha
+      do próprio script dizia "Token invalido ou sem acesso a rede sao as
+      causas comuns", e mandou o grupo procurar no lugar errado. Corrigidos os
+      dois: a montagem e a mensagem, que agora pede para ler o campo `error` e
+      explica o que cada um significa
 
 ### 4.2 Pendente — a executar antes da entrega
 
@@ -187,12 +199,10 @@ gerado sem verificação"*. Esta seção registra o estado real da verificação
       encontrado, consultando a base MITRE e não a sugestão da IA
 - [ ] Executar o `LAB.md` inteiro **em máquina que não é a de nenhum
       integrante** — exigência explícita do enunciado, ainda não cumprida
-- [ ] Rodar o **Snyk** (`SNYK_TOKEN=<token> bash scripts/rodar-sca-iac.sh`).
-      É a única das quatro ferramentas sem evidência de execução — exige
-      token de conta. O Terrascan já rodou: 67 violações no TerraGoat
-- [ ] Medir tempo de execução e taxa de falso positivo de cada uma das 4
-      ferramentas, para a seção 6(e) do documento
-- [ ] Capturar os prints de build vermelho e verde para `evidencias/`
+- [ ] **Classificar os falsos positivos** das 4 ferramentas, para a seção 6(e).
+      Os totais e os tempos já estão medidos e versionados; o que falta é o
+      julgamento de quais achados são falsos positivos — análise do grupo,
+      que nenhum script decide
 - [ ] Gravar o vídeo de plano B (5 a 8 minutos)
 
 ## 5. Trechos de terceiros citados (seção 10 — citação obrigatória)

@@ -1,3 +1,5 @@
 terrascan	10	2026-09-12
 opengrep	31	2026-09-12
 nikto	6	2026-09-12
+terrascan	11	2026-09-14
+snyk	10	2026-09-14

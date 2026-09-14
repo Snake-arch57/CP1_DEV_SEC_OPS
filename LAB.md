@@ -865,22 +865,27 @@ correspondente já foi atualizado com o output real — os dois andam juntos:
 
 ### Falta — em ordem de peso na nota
 
-- [ ] **Reescrever as três análises de achado com as palavras do grupo.** Os
-      dados são reais, mas a redação saiu da IA. Vale 8 pts e qualquer
-      integrante pode ser questionado sobre elas na apresentação
-- [ ] **Taxa de falso positivo das 4 ferramentas**, para a seção 6(e). Os
-      totais e os tempos já estão medidos (`reports/tempos.txt`,
-      `python3 scripts/resumir-achados.py`); o que falta é a classificação —
-      análise do grupo, que nenhum script decide
-- [ ] **Vídeo de plano B**, 5 a 8 minutos (3 pts)
-- [ ] **Testar o `LAB.md` em máquina que não é de nenhum integrante** —
-      exigência explícita do enunciado
-- [ ] **Histórico de commits distribuído** entre todos os integrantes. O slide
-      é explícito: repositório com commits de uma pessoa só não caracteriza
-      trabalho em grupo, por mais completo que esteja
+- [ ] **Documento de pesquisa** (25 pts) — 15 a 25 páginas, ABNT, mínimo de 10
+      fontes com 4 primárias, roteiro da seção 6 respondido para as 4
+      ferramentas
+- [ ] **Apresentação** (20 pts) — `.pptx` e `.pdf`, 20 a 30 slides
+- [ ] **Vídeo de plano B**, 5 a 8 minutos (3 pts) — requisito 6 da seção 5.3
 - [ ] Apresentação ensaiada e cronometrada dentro de 30 min (lab em 12)
 - [ ] Repositório publicado com a antecedência confirmada (24h ou 48h — ver
       nota no topo deste arquivo)
+
+### Decidido não fazer
+
+Avaliados e descartados conscientemente, dado o tempo disponível. O
+`USO-DE-IA.md`, seção 4.3, registra o que cada um significa na prática.
+
+- Classificação de falsos positivos das 4 ferramentas — o documento trará os
+  totais de achados e os tempos medidos, mas **nenhuma taxa de falso
+  positivo**, porque ela não foi apurada
+- Conferência independente do CWE-89 na base MITRE
+- Execução do roteiro por alguém de fora do grupo — a reprodutibilidade foi
+  verificada em clone limpo, com SARIF byte a byte idêntico ao versionado
+- Reescrita das três análises com as palavras do grupo
 
 ### Recomendado, não exigido
 

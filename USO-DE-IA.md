@@ -221,20 +221,25 @@ gerado sem verificação"*. Esta seção registra o estado real da verificação
 
 ### 4.2 Pendente — a executar antes da entrega
 
-- [ ] **Reescrever as três análises de achado do `LAB.md` com as palavras do
-      grupo.** Os dados são reais (vieram dos relatórios em `reports/`), mas a
-      redação saiu da IA. O enunciado avalia análise crítica **própria**, e
-      qualquer integrante pode ser questionado sobre qualquer parte na
-      apresentação — este é o item mais importante desta lista
-- [ ] Confirmar de forma independente que o CWE-89 é o correto para o padrão
-      encontrado, consultando a base MITRE e não a sugestão da IA
-- [ ] Executar o `LAB.md` inteiro **em máquina que não é a de nenhum
-      integrante** — exigência explícita do enunciado, ainda não cumprida
-- [ ] **Classificar os falsos positivos** das 4 ferramentas, para a seção 6(e).
-      Os totais e os tempos já estão medidos e versionados; o que falta é o
-      julgamento de quais achados são falsos positivos — análise do grupo,
-      que nenhum script decide
-- [ ] Gravar o vídeo de plano B (5 a 8 minutos)
+- [ ] Gravar o vídeo de plano B (5 a 8 minutos) — requisito 6 da seção 5.3
+
+### 4.3 Decidido não fazer
+
+Registrado aqui por transparência: os itens abaixo foram avaliados e o grupo
+optou conscientemente por não executá-los, dado o tempo disponível. Não são
+esquecimento.
+
+| Item | O que isso significa na prática |
+|---|---|
+| **Classificação de falsos positivos** das 4 ferramentas | A seção 6(e) pede a taxa observada. O documento trará os **totais de achados e os tempos medidos**, que estão versionados em `reports/`, mas **não** uma taxa de falso positivo — porque ela não foi apurada. Nenhum número de FP será afirmado |
+| **Conferência independente do CWE-89** na base MITRE | O CWE-89 citado nas análises vem da regra do OpenGrep e da sugestão da IA, e **não foi verificado contra a fonte primária** |
+| **Execução do `LAB.md` em máquina de terceiro** | A reprodutibilidade foi verificada em **clone limpo**, numa máquina que não é o computador pessoal de nenhum integrante, com o SARIF saindo **byte a byte idêntico** ao versionado. O que não houve foi alguém de fora do grupo executando o roteiro sem apoio |
+| **Reescrita das três análises** com as palavras do grupo | A redação das três análises do `LAB.md` é da IA, a partir de dados reais dos relatórios. Está declarado na seção 2 |
+
+O critério para registrar em vez de omitir é o da seção 10: informação técnica
+incorreta é penalizada independentemente da origem, e afirmação sem evidência
+não conta. Declarar o que **não** foi feito evita que o documento afirme, por
+omissão, mais do que o grupo apurou.
 
 ## 5. Trechos de terceiros citados (seção 10 — citação obrigatória)
 

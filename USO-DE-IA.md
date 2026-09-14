@@ -213,6 +213,23 @@ gerado sem verificação"*. Esta seção registra o estado real da verificação
 - Alvos vulneráveis (DVWA, TerraGoat, NodeGoat): projetos OWASP / Bridgecrew,
   referenciados no documento
 
----
+## 6. Quem responde por esta declaração
 
-*Integrantes do Grupo 1: Eduardo José · Hyago Antônio · Pedro Frommer · Sarah Pereira · Vinicius Olivetti*
+A seção 3 do enunciado manda o grupo eleger um líder técnico e um relator. A
+seção 10 acrescenta que **qualquer integrante pode ser questionado sobre
+qualquer parte do trabalho** na apresentação, e que a divisão interna de
+tarefas não isenta ninguém de compreender o conjunto.
+
+| Integrante | Papel |
+|---|---|
+| **Pedro Frommer** | líder técnico — repositório, ambiente Docker e pipeline |
+| **Eduardo José** | relator — documento de pesquisa e consistência entre o que está escrito e o que foi demonstrado |
+| Hyago Antônio | — |
+| Sarah Pereira | — |
+| Vinicius Olivetti | — |
+
+Os papéis dizem quem **conduz** cada frente, não quem entende dela. Antes da
+apresentação, todos precisam ter lido este arquivo e o `VIBE.md`: eles contam
+o que foi gerado com IA, o que foi corrigido na conferência e por quê — que é
+exatamente o tipo de pergunta que a seção 10 autoriza o professor a fazer a
+qualquer um.

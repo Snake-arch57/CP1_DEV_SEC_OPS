@@ -1,6 +1,6 @@
 # Laboratório: OpenGrep (SAST) + Nikto (DAST)
 
-Grupo 1 — **Integrantes:** Eduardo José · Hyago Antônio · Pedro Frommer · Sarah Pereira · Vinicius Olivetti
+Grupo 1 — **Integrantes:** Eduardo José *(relator)* · Hyago Antônio · Pedro Frommer *(líder técnico)* · Sarah Pereira · Vinicius Olivetti
 
 Duração estimada: 12 minutos (bloco 3 da divisão de tempo do enunciado)
 

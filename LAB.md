@@ -26,10 +26,12 @@ imagem `vulnerables/web-dvwa`. Consta na lista de **alvos vulneráveis
 autorizados** da seção 7 do enunciado.
 
 O DVWA é uma aplicação **deliberadamente vulnerável**. Ao seguir este roteiro
-você sobe, na sua própria máquina, uma aplicação projetada para ser invadida —
-com credenciais padrão (`admin` / `password`) e Security Level em **Low**. Isso
-é intencional: é o que faz as ferramentas encontrarem achados reais, conforme
-o requisito 4 da seção 5.3. Mas exige cuidado.
+você sobe, na sua própria máquina, uma aplicação escrita de propósito com
+falhas reais — SQL Injection, command injection, XSS — além de credenciais
+padrão (`admin` / `password`).
+
+É isso que faz as ferramentas encontrarem achados de verdade, como pede o
+requisito 4 da seção 5.3. Mas exige cuidado.
 
 ### Regras de escopo deste laboratório
 
@@ -198,10 +200,28 @@ docker compose up -d dvwa
 
 Resultado esperado:
 
-Container `dvwa` em estado `Up` (`docker ps`). Acessar
-`http://localhost:8081/setup.php`, clicar em **Create / Reset Database**.
-Login padrão: `admin` / `password`. Definir DVWA Security Level como **Low**
-em *DVWA Security* — achados mais previsíveis para a demonstração.
+Container `dvwa` em estado `Up` (`docker ps`), respondendo em
+`http://localhost:8081`.
+
+Para navegar pela aplicação: acessar `http://localhost:8081/setup.php`, clicar
+em **Create / Reset Database** e entrar com `admin` / `password`. O DVWA já
+inicia em *DVWA Security* **Low**, que é o padrão dele.
+
+> **Esses passos de navegador são opcionais para o laboratório.** Nenhuma das
+> duas ferramentas depende deles:
+>
+> - o **OpenGrep** lê o código-fonte em `targets/dvwa`, não a aplicação em
+>   execução — e os quatro níveis (`low`, `medium`, `high`, `impossible`)
+>   existem como arquivos no código, independente do que está configurado;
+> - o **Nikto** varre sem autenticar, então nem chega a ver a configuração de
+>   segurança.
+>
+> Conferido no próprio pipeline: o job `dast-nikto` **nunca executa nenhum
+> passo de navegador**, e produz os mesmos 15 achados do relatório versionado
+> em `reports/nikto-dvwa.json`.
+>
+> Fazer o setup vale para *ver* o alvo — entender que é uma aplicação real,
+> com login e níveis de dificuldade. Não muda o que as ferramentas encontram.
 
 ---
 

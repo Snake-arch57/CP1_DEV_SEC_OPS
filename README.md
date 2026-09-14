@@ -12,8 +12,9 @@ DevSecOps — preparatório E|CDE, Módulo III.
 ## ⚠️ Leia antes de executar
 
 Este repositório sobe o **DVWA (Damn Vulnerable Web Application)**, uma aplicação
-**deliberadamente vulnerável**, com credenciais padrão e Security Level *Low*.
-Isso é intencional — é o que faz as ferramentas encontrarem achados reais.
+**deliberadamente vulnerável**: escrita de propósito com falhas reais — SQL
+Injection, command injection, XSS — e credenciais padrão. É isso que faz as
+ferramentas encontrarem achados de verdade.
 
 O `docker-compose.yml` publica o DVWA em **`127.0.0.1:8081`**, acessível só pela
 sua máquina. **Não altere esse bind** para `0.0.0.0` nem exponha a porta na rede

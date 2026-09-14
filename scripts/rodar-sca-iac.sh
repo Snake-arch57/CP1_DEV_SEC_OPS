@@ -109,9 +109,16 @@ elif clonar https://github.com/OWASP/NodeGoat.git nodegoat; then
   # package-lock.json), que e exatamente o objeto do SCA: as dependencias
   # declaradas. Nao precisa instalar o projeto.
   #
+  # O ponto de montagem e /app, nao um diretorio qualquer: a imagem
+  # snyk/snyk:node define WORKDIR /app, e `snyk test` analisa o diretorio
+  # ATUAL. Montar em /project fazia o Snyk varrer o /app vazio e responder
+  # "Could not detect supported target files in /app" -- com o token
+  # perfeitamente valido. O -w deixa a intencao explicita mesmo que a
+  # imagem mude o WORKDIR no futuro.
+  #
   # Como o Terrascan, o Snyk sai com codigo != 0 quando encontra
   # vulnerabilidade -- resultado esperado.
-  docker run --rm -v "$(pwd)/$TARGETS/nodegoat:/project" \
+  docker run --rm -v "$(pwd)/$TARGETS/nodegoat:/app" -w /app \
     -e "SNYK_TOKEN=$SNYK_TOKEN" snyk/snyk:node \
     snyk test --json \
     > "$REPORTS/snyk-nodegoat.json" || true
@@ -128,7 +135,11 @@ elif clonar https://github.com/OWASP/NodeGoat.git nodegoat; then
     echo "[falha] o Snyk nao devolveu lista de vulnerabilidades. Saida:" >&2
     head -c 500 "$REPORTS/snyk-nodegoat.json" >&2
     echo "" >&2
-    echo "        Token invalido ou sem acesso a rede sao as causas comuns." >&2
+    echo "        LEIA o campo \"error\" acima antes de culpar o token." >&2
+    echo "        - \"Could not detect supported target files\": o alvo nao" >&2
+    echo "          chegou no diretorio que o Snyk analisa (ponto de montagem)." >&2
+    echo "        - \"authentication\" / \"Unauthorized\": ai sim e o token." >&2
+    echo "        - sem JSON nenhum: falta de rede." >&2
     rm -f "$REPORTS/snyk-nodegoat.json"
     FALHAS=$((FALHAS + 1))
   fi

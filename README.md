@@ -75,7 +75,8 @@ Duração estimada: **12 minutos**. Cada passo é **um bloco só** — copie int
 cole no terminal, siga para o próximo. Todos os comandos foram executados e as
 saídas abaixo são as reais.
 
-Só o passo 1 pede algo fora do terminal: o navegador.
+Todos os passos rodam no terminal. O passo 5 é só abrir duas páginas do
+GitHub Actions.
 
 > Esta é a mesma sequência do [LAB.md](LAB.md), sem as explicações. O
 > **[LAB.md](LAB.md) é o roteiro oficial** — traz o resultado esperado de cada
@@ -108,15 +109,18 @@ coisa aqui, não siga em frente.
 docker compose up -d dvwa
 echo "aguardando o DVWA responder..."
 until curl -sf -o /dev/null http://localhost:8081/; do sleep 3; done
-echo "no ar: http://localhost:8081/setup.php"
+echo "no ar: http://localhost:8081"
 ```
 
-Agora **no navegador**, uma vez só:
+É só isso. As duas ferramentas do laboratório **não precisam** do banco
+inicializado nem de login: o OpenGrep lê o código-fonte em disco, e o Nikto
+varre a aplicação sem autenticar. O pipeline no GitHub Actions também não faz
+nenhum passo de navegador, e produz os mesmos 15 achados.
 
-1. Abra <http://localhost:8081/setup.php>
-2. Clique em **Create / Reset Database**
-3. Login `admin`, senha `password`
-4. Menu **DVWA Security** → **Low** → *Submit*
+> Se quiser navegar pelo DVWA — útil para entender o alvo, não para o
+> laboratório — abra <http://localhost:8081/setup.php>, clique em
+> **Create / Reset Database** e entre com `admin` / `password`. O `LAB.md`
+> descreve isso no passo 1.
 
 ### Passo 2 — OpenGrep (SAST)
 

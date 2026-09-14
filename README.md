@@ -154,6 +154,63 @@ São **2 achados** em `vulnerabilities/sqli/source/low.php` — guarde o número
 é a resposta da pergunta 1. Repare que há SQL Injection também no módulo
 `sqli_blind`: o gate conta só `vulnerabilities/sqli/`, o módulo em remediação.
 
+#### Onde ficam esses arquivos
+
+O `/src` do relatório é o caminho **dentro do container**, não na sua máquina.
+Ele vem do volume `./targets/dvwa:/src:ro` do `docker-compose.yml` — o OpenGrep
+roda isolado e só enxerga `/src`.
+
+Para abrir na sua máquina, **troque `/src` por `targets/dvwa`**:
+
+```bash
+echo "--- o achado da linha 10 ---"
+sed -n '5,14p' targets/dvwa/vulnerabilities/sqli/source/low.php
+echo "--- e o da linha 31 ---"
+sed -n '28,34p' targets/dvwa/vulnerabilities/sqli/source/low.php
+```
+
+Saída real, recortada nas linhas que interessam:
+
+```php
+$id = $_REQUEST[ 'id' ];
+...
+$query  = "SELECT first_name, last_name FROM users WHERE user_id = '$id';";
+```
+
+O `$id` vem de `$_REQUEST` e é concatenado direto na string da query — sem
+prepared statement, sem bind. É o CWE-89. A linha 10 é o caminho MySQL; a 31,
+o SQLite, com a mesma concatenação.
+
+#### Ver o achado como a ferramenta o descreve
+
+```bash
+grep -oE '.{0,40}sqli/source/low\.php.{0,400}' reports/opengrep-dvwa.sarif \
+  | head -1 | tr ',' '\n' | grep -E 'uri|endLine|text'
+```
+
+Saída real, recortada:
+
+```
+"uri":"/src/vulnerabilities/sqli/source/low.php"
+"uriBaseId":"%SRCROOT%"
+"endLine":10
+"snippet":{"text":"\t\t\t$query  = \"SELECT first_name...
+"message":{"text":"User data flows into this manually-constructed SQL
+ string. User data can be safely inserted into SQL strings using prepared
+ statements or an object-relational mapper (ORM)...
+```
+
+A mensagem fala em **fluxo** do dado do usuário até a string da query. É essa
+frase que distingue *taint analysis* de busca por padrão: a regra rastreia o
+`$id` desde o `$_REQUEST` até o ponto onde ele vira SQL, em vez de procurar um
+texto fixo no código.
+
+> A diferença de caminho é característica de toda ferramenta que roda em
+> container, e importa na hora de integrar: um SARIF com caminhos `/src/...`
+> não casa com os arquivos do repositório se for importado direto pelo GitHub
+> Code Scanning. O OpenGrep declara `"uriBaseId": "%SRCROOT%"` justamente para
+> isso — quem consome o relatório decide qual é a raiz.
+
 ### Passo 4 — Nikto (DAST)
 
 ```bash

@@ -39,58 +39,123 @@ conforme exige a seção 5.3.
 
 ---
 
-## Download das imagens
+## Download de cada imagem
 
-Rode antes da aula — é o que permite executar o laboratório sem depender da rede
-no dia:
+Exigido pela seção 5.3.3 do enunciado. Rode antes da aula — é o que permite
+executar o laboratório sem depender da rede no dia.
 
-```bash
-git clone https://github.com/Snake-arch57/CP1_DEV_SEC_OPS.git
-cd CP1_DEV_SEC_OPS
+| Item | Comando |
+|---|---|
+| DVWA (alvo) | `docker pull vulnerables/web-dvwa:latest` |
+| Nikto (DAST) | `docker pull hysnsec/nikto:latest` |
+| OpenGrep (SAST) | `docker compose build opengrep` |
+| Código-fonte do DVWA | `bash scripts/preparar-alvo.sh` |
 
-docker pull vulnerables/web-dvwa:latest
-docker pull hysnsec/nikto:latest
-docker compose build opengrep
-```
+> **Por que o OpenGrep é compilado e não baixado:** não há imagem oficial
+> publicada pela organização `opengrep` no Docker Hub. O `Dockerfile` instala o
+> binário pelo script oficial do projeto, com a versão fixada em `v1.22.0`,
+> para que todos rodem exatamente o mesmo build. Cuidado com a confusão comum:
+> `returntocorp/opengrep` **não** é o OpenGrep — `returntocorp` é a organização
+> antiga do **Semgrep**, projeto do qual o OpenGrep é um fork.
 
-> O OpenGrep é **compilado**, não baixado: não há imagem oficial publicada pela
-> organização `opengrep` no Docker Hub. O `Dockerfile` instala o binário pelo
-> script oficial do projeto, com a versão fixada em `v1.22.0` para que todos
-> rodem exatamente o mesmo build.
+> **Por que o código-fonte é um item à parte:** o SAST analisa o **código** do
+> DVWA, não a imagem em execução. Esse código não vem no repositório — está no
+> `.gitignore`, porque versionar um repositório de terceiros poluiria o
+> histórico de commits do grupo, que é avaliado. Se esquecer, o passo 2 falha
+> com mensagem dizendo o que fazer, em vez de reportar "0 findings" e sair com
+> sucesso.
 
-O SAST analisa o **código-fonte** do DVWA, não a imagem em execução — e esse
-código **não vem com o repositório**. Prepare o alvo antes do passo 2:
-
-```bash
-bash scripts/preparar-alvo.sh
-```
-
-O script clona o DVWA em `targets/dvwa` se ainda não existir, e não faz nada se
-já existir. O equivalente manual é
-`git clone https://github.com/digininja/DVWA.git targets/dvwa`.
-
-Verificação:
-
-```bash
-docker images | grep -E "dvwa|opengrep|nikto"   # as três imagens
-ls targets/dvwa/vulnerabilities/sqli/source/    # o alvo do passo 2
-```
-
-> Se esquecer o alvo, o passo 2 **falha com mensagem dizendo o que fazer** — a
-> imagem do OpenGrep confere o diretório antes de varrer, em vez de reportar
-> "0 findings" e sair com sucesso.
+A sequência completa, na ordem de execução, está na seção seguinte.
 
 ---
 
 ## Executar o laboratório
 
-O roteiro completo, com comandos copiáveis e resultado esperado de cada passo,
-está em **[LAB.md](LAB.md)**. Duração estimada: 12 minutos.
+Duração estimada: **12 minutos**.
+
+A sequência abaixo é a mesma do [LAB.md](LAB.md), sem as explicações — é para
+copiar e colar. O **[LAB.md](LAB.md) é o roteiro oficial**: traz o resultado
+esperado de cada passo, o que observar em cada saída e o troubleshooting. Em
+caso de divergência entre os dois, vale o `LAB.md`.
+
+### Passo 0 — preparar (antes da aula)
 
 ```bash
-docker compose up -d dvwa     # passo 1
-# ... siga o LAB.md
-docker compose down -v        # passo 7
+git clone https://github.com/Snake-arch57/CP1_DEV_SEC_OPS.git
+cd CP1_DEV_SEC_OPS
+
+docker compose pull            # DVWA e Nikto
+docker compose build           # compila o OpenGrep
+bash scripts/preparar-alvo.sh  # clona o codigo-fonte do DVWA
+```
+
+Confira os dois:
+
+```bash
+docker images | grep -E "dvwa|opengrep|nikto"   # tres imagens
+ls targets/dvwa/vulnerabilities/sqli/source/    # low.php, medium.php, ...
+```
+
+### Passo 1 — subir o ambiente
+
+```bash
+docker compose up -d dvwa
+```
+
+No navegador: **http://localhost:8081/setup.php** → *Create / Reset Database* →
+login `admin` / `password` → *DVWA Security* → **Low**.
+
+### Passo 2 — OpenGrep (SAST)
+
+```bash
+docker compose run --rm opengrep \
+  --config=p/php \
+  --config=p/owasp-top-ten \
+  --sarif --output=/reports/opengrep-dvwa.sarif \
+  /src
+```
+
+Esperado: `Ran 126 rules on 250 files: 58 findings.`
+
+### Passo 3 — achar o SQL Injection
+
+```bash
+grep -n "tainted-sql-string" reports/opengrep-dvwa.sarif | head -3
+```
+
+O achado que você procura está em `vulnerabilities/sqli/source/low.php`,
+linhas **10** e **31**.
+
+### Passo 4 — Nikto (DAST)
+
+```bash
+docker compose run --rm nikto \
+  -h http://dvwa:80 \
+  -Format txt -o /reports/nikto-dvwa.txt
+```
+
+Procure na saída: `/config/: Directory indexing found.`
+
+### Passo 5 — o gate decide o deploy
+
+As duas execuções já estão no Actions, prontas para comparar:
+
+- 🔴 [build vermelho](https://github.com/Snake-arch57/CP1_DEV_SEC_OPS/actions/runs/34763310159) — `SAST=2 DAST=2 TOTAL=4`, deploy **bloqueado**
+- 🟢 [build verde](https://github.com/Snake-arch57/CP1_DEV_SEC_OPS/actions/runs/34762690575) — `TOTAL=0`, deploy **executado**
+
+### Passo 6 — as duas perguntas de verificação
+
+Responda e entregue, junto com o print do output final de cada ferramenta:
+
+1. Quantos achados de severidade **HIGH** (nível `error` no SARIF) o OpenGrep
+   reportou em `vulnerabilities/sqli/source/low.php`?
+2. Qual **CWE** está associado a esse achado, e qual header de segurança o
+   Nikto reportou como ausente no DVWA?
+
+### Passo 7 — encerrar
+
+```bash
+docker compose down -v
 ```
 
 ---

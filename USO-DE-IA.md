@@ -215,4 +215,4 @@ gerado sem verificação"*. Esta seção registra o estado real da verificação
 
 ---
 
-*Integrantes do Grupo 1: _____________________________*
+*Integrantes do Grupo 1: Eduardo José · Hyago Antônio · Pedro Frommer · Sarah Pereira · Vinicius Olivetti*

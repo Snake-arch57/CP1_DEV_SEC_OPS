@@ -5,7 +5,7 @@
 Ferramentas open source de SAST, DAST, IaC Security e SCA no pipeline.
 DevSecOps — preparatório E|CDE, Módulo III.
 
-**Integrantes:** _____________________________
+**Integrantes:** Eduardo José · Hyago Antônio · Pedro Frommer · Sarah Pereira · Vinicius Olivetti
 
 ---
 

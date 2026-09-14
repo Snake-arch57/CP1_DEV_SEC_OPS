@@ -51,6 +51,9 @@ até o momento.
   copiar e colar, com as saídas reais de cada comando
 - `restart: unless-stopped` no `docker-compose.yml`, e o texto que explica por
   que `unless-stopped` e não `always`
+- Redação do `evidencias/README.md` e da seção do Snyk em `reports/README.md`,
+  a partir dos números lidos dos relatórios — os prints e as execuções em si
+  são do grupo (ver seção 3)
 
 ### Arquivos de instrução para a própria IA
 
@@ -81,7 +84,10 @@ Decisões técnicas e de conteúdo tomadas pelo grupo:
   o formatou em tabela
 - Perguntas de verificação definidas para a turma
 - Vídeo de plano B
-- Execução do pipeline e das ferramentas
+- Execução do pipeline e das quatro ferramentas, incluindo a conta e o token
+  do Snyk
+- Prints do build vermelho e do verde (`evidencias/*.png`), capturados das
+  execuções reais no GitHub Actions
 - Medições de tempo de execução e taxa de falso positivo do documento
 
 ## 4. Validação pelo grupo

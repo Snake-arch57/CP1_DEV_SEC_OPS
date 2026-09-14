@@ -333,8 +333,16 @@ antes de contar — filtrar direto pelo campo `level` do resultado retorna zero.
 │   ├── rodar-sca-iac.sh             # executa Terrascan e Snyk
 │   ├── testar-sqli.py               # prova a correção na aplicação no ar
 │   └── resumir-achados.py           # conta os achados dos 4 relatórios
-├── reports/                         # relatórios de saída versionados
-└── evidencias/                      # prints de build vermelho e verde
+├── reports/                         # relatorios das 4 ferramentas, versionados
+│   ├── snyk-nodegoat.json           # SCA -- 371 achados, 170 HIGH
+│   ├── terrascan-terragoat.json     # IaC -- 67 violacoes, 35 HIGH
+│   ├── opengrep-dvwa.sarif          # SAST -- 58 achados, 25 error
+│   ├── nikto-dvwa.json / .txt       # DAST -- 15 achados
+│   └── tempos.txt                   # tempo medido de cada execucao
+└── evidencias/
+    ├── build-vermelho.png           # gate bloqueando o deploy
+    ├── build-verde.png              # gate liberando o deploy
+    └── execucao-local-*.md          # execucao completa, com os numeros
 ```
 
 ---

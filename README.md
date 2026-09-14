@@ -75,12 +75,15 @@ Duração estimada: **12 minutos**. Cada passo é **um bloco só** — copie int
 cole no terminal, siga para o próximo. Todos os comandos foram executados e as
 saídas abaixo são as reais.
 
-Só os passos 1 e 6 pedem algo fora do terminal: o navegador e as respostas.
+Só o passo 1 pede algo fora do terminal: o navegador.
 
 > Esta é a mesma sequência do [LAB.md](LAB.md), sem as explicações. O
 > **[LAB.md](LAB.md) é o roteiro oficial** — traz o resultado esperado de cada
-> passo, o que observar em cada saída e o troubleshooting. Havendo divergência
-> entre os dois, vale o `LAB.md`.
+> passo, o que observar em cada saída, as perguntas de verificação do passo 6 e
+> o troubleshooting. Havendo divergência entre os dois, vale o `LAB.md`.
+>
+> A numeração acompanha a do `LAB.md`, por isso vai do passo 5 ao 7: o passo 6
+> não tem comando, é o bloco de perguntas.
 
 ### Passo 0 — preparar (antes da aula)
 
@@ -151,7 +154,8 @@ Saída real:
 ```
 
 São **2 achados** em `vulnerabilities/sqli/source/low.php` — guarde o número,
-é a resposta da pergunta 1. Repare que há SQL Injection também no módulo
+é a resposta da primeira pergunta de verificação (ver [LAB.md](LAB.md),
+passo 6). Repare que há SQL Injection também no módulo
 `sqli_blind`: o gate conta só `vulnerabilities/sqli/`, o módulo em remediação.
 
 #### Onde ficam esses arquivos
@@ -244,19 +248,6 @@ Nada para rodar: as duas execuções já estão no Actions, prontas para compara
 
 No vermelho, repare que `config-do-deploy` e `deploy` aparecem **pulados**, não
 como falha: o deploy não quebrou, foi bloqueado pelo gate.
-
-### Passo 6 — as duas perguntas de verificação
-
-Entregue individualmente ao final da aula, junto com o print do output final de
-cada ferramenta:
-
-1. Quantos achados de severidade **HIGH** (nível `error` no SARIF) o OpenGrep
-   reportou em `vulnerabilities/sqli/source/low.php`?
-2. Qual **CWE** está associado a esse achado, e qual header de segurança o
-   Nikto reportou como ausente no DVWA?
-
-A primeira sai do passo 3, a segunda do passo 4 mais o CWE que o próprio
-relatório registra.
 
 ### Passo 7 — encerrar
 

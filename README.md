@@ -71,39 +71,49 @@ A sequência completa, na ordem de execução, está na seção seguinte.
 
 ## Executar o laboratório
 
-Duração estimada: **12 minutos**.
+Duração estimada: **12 minutos**. Cada passo é **um bloco só** — copie inteiro,
+cole no terminal, siga para o próximo. Todos os comandos foram executados e as
+saídas abaixo são as reais.
 
-A sequência abaixo é a mesma do [LAB.md](LAB.md), sem as explicações — é para
-copiar e colar. O **[LAB.md](LAB.md) é o roteiro oficial**: traz o resultado
-esperado de cada passo, o que observar em cada saída e o troubleshooting. Em
-caso de divergência entre os dois, vale o `LAB.md`.
+Só os passos 1 e 6 pedem algo fora do terminal: o navegador e as respostas.
+
+> Esta é a mesma sequência do [LAB.md](LAB.md), sem as explicações. O
+> **[LAB.md](LAB.md) é o roteiro oficial** — traz o resultado esperado de cada
+> passo, o que observar em cada saída e o troubleshooting. Havendo divergência
+> entre os dois, vale o `LAB.md`.
 
 ### Passo 0 — preparar (antes da aula)
 
 ```bash
 git clone https://github.com/Snake-arch57/CP1_DEV_SEC_OPS.git
 cd CP1_DEV_SEC_OPS
-
-docker compose pull            # DVWA e Nikto
-docker compose build           # compila o OpenGrep
-bash scripts/preparar-alvo.sh  # clona o codigo-fonte do DVWA
+docker compose pull
+docker compose build
+bash scripts/preparar-alvo.sh
+echo "--- as tres imagens ---"
+docker images | grep -E "dvwa|opengrep|nikto"
+echo "--- o alvo do SAST ---"
+ls targets/dvwa/vulnerabilities/sqli/source/
 ```
 
-Confira os dois:
-
-```bash
-docker images | grep -E "dvwa|opengrep|nikto"   # tres imagens
-ls targets/dvwa/vulnerabilities/sqli/source/    # low.php, medium.php, ...
-```
+Você deve ver **três imagens** e o arquivo **`low.php`**. Se faltar alguma
+coisa aqui, não siga em frente.
 
 ### Passo 1 — subir o ambiente
 
 ```bash
 docker compose up -d dvwa
+echo "aguardando o DVWA responder..."
+until curl -sf -o /dev/null http://localhost:8081/; do sleep 3; done
+echo "no ar: http://localhost:8081/setup.php"
 ```
 
-No navegador: **http://localhost:8081/setup.php** → *Create / Reset Database* →
-login `admin` / `password` → *DVWA Security* → **Low**.
+Agora **no navegador**, uma vez só:
+
+1. Abra <http://localhost:8081/setup.php>
+2. Clique em **Create / Reset Database**
+3. Login `admin`, senha `password`
+4. Menu **DVWA Security** → **Low** → *Submit*
 
 ### Passo 2 — OpenGrep (SAST)
 
@@ -115,16 +125,34 @@ docker compose run --rm opengrep \
   /src
 ```
 
-Esperado: `Ran 126 rules on 250 files: 58 findings.`
+Esperado no fim: `Ran 126 rules on 250 files: 58 findings.`
 
-### Passo 3 — achar o SQL Injection
+### Passo 3 — achar o SQL Injection no relatório
 
 ```bash
-grep -n "tainted-sql-string" reports/opengrep-dvwa.sarif | head -3
+echo "--- arquivos com achado de SQL Injection ---"
+grep -oE '"uri":"[^"]*sqli[^"]*"' reports/opengrep-dvwa.sarif | sort -u
+echo "--- linhas em sqli/source/low.php ---"
+grep -oE 'sqli/source/low\.php.{0,160}' reports/opengrep-dvwa.sarif \
+  | grep -oE '"endLine":[0-9]+'
 ```
 
-O achado que você procura está em `vulnerabilities/sqli/source/low.php`,
-linhas **10** e **31**.
+Saída real:
+
+```
+--- arquivos com achado de SQL Injection ---
+"uri":"/src/vulnerabilities/sqli/source/low.php"
+"uri":"/src/vulnerabilities/sqli_blind/source/high.php"
+"uri":"/src/vulnerabilities/sqli_blind/source/low.php"
+"uri":"/src/vulnerabilities/sqli_blind/source/medium.php"
+--- linhas em sqli/source/low.php ---
+"endLine":10
+"endLine":31
+```
+
+São **2 achados** em `vulnerabilities/sqli/source/low.php` — guarde o número,
+é a resposta da pergunta 1. Repare que há SQL Injection também no módulo
+`sqli_blind`: o gate conta só `vulnerabilities/sqli/`, o módulo em remediação.
 
 ### Passo 4 — Nikto (DAST)
 
@@ -134,23 +162,38 @@ docker compose run --rm nikto \
   -Format txt -o /reports/nikto-dvwa.txt
 ```
 
-Procure na saída: `/config/: Directory indexing found.`
+Procure na saída, e guarde para a pergunta 2:
+
+```
++ /config/: Directory indexing found.
++ /docs/: Directory indexing found.
++ The anti-clickjacking X-Frame-Options header is not present.
+```
 
 ### Passo 5 — o gate decide o deploy
 
-As duas execuções já estão no Actions, prontas para comparar:
+Nada para rodar: as duas execuções já estão no Actions, prontas para comparar.
 
-- 🔴 [build vermelho](https://github.com/Snake-arch57/CP1_DEV_SEC_OPS/actions/runs/34763310159) — `SAST=2 DAST=2 TOTAL=4`, deploy **bloqueado**
-- 🟢 [build verde](https://github.com/Snake-arch57/CP1_DEV_SEC_OPS/actions/runs/34762690575) — `TOTAL=0`, deploy **executado**
+| | Execução | Resultado |
+|---|---|---|
+| 🔴 | [build vermelho](https://github.com/Snake-arch57/CP1_DEV_SEC_OPS/actions/runs/34763310159) | `SAST=2 DAST=2 TOTAL=4` — deploy **bloqueado** |
+| 🟢 | [build verde](https://github.com/Snake-arch57/CP1_DEV_SEC_OPS/actions/runs/34762690575) | `TOTAL=0` — deploy **executado** |
+
+No vermelho, repare que `config-do-deploy` e `deploy` aparecem **pulados**, não
+como falha: o deploy não quebrou, foi bloqueado pelo gate.
 
 ### Passo 6 — as duas perguntas de verificação
 
-Responda e entregue, junto com o print do output final de cada ferramenta:
+Entregue individualmente ao final da aula, junto com o print do output final de
+cada ferramenta:
 
 1. Quantos achados de severidade **HIGH** (nível `error` no SARIF) o OpenGrep
    reportou em `vulnerabilities/sqli/source/low.php`?
 2. Qual **CWE** está associado a esse achado, e qual header de segurança o
    Nikto reportou como ausente no DVWA?
+
+A primeira sai do passo 3, a segunda do passo 4 mais o CWE que o próprio
+relatório registra.
 
 ### Passo 7 — encerrar
 

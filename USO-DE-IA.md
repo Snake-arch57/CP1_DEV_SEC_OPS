@@ -28,7 +28,7 @@ até o momento.
 - Revisão de conformidade do `LAB.md` contra o enunciado do Check Point 01
   (checagem requisito a requisito da seção 5.3 e da rubrica da seção 9)
 - Rascunho do `README.md`, do `DEPLOY.md` e do `patches/fix-sqli.php`
-- Diagnóstico dos quatro erros listados em 4.1, a partir dos logs de execução
+- Diagnóstico dos erros listados em 4.1, a partir dos logs de execução
   e dos relatórios reais
 - Redação das três análises de achado do `LAB.md`, a partir dos dados das
   execuções — **pendente de revisão e reescrita pelo grupo** (ver 4.2)
@@ -45,6 +45,12 @@ até o momento.
     laboratório (ver 4.1)
   - `scripts/testar-sqli.py`, que prova a correção na aplicação no ar
   O detalhamento de cada mudança, com o motivo, está em `VIBE.md`
+- `scripts/preparar-alvo.sh` e `entrypoint-opengrep.sh` — as duas camadas que
+  impedem o laboratório de rodar sem o código-fonte do alvo
+- Reorganização do `README.md` para que cada passo seja um bloco único de
+  copiar e colar, com as saídas reais de cada comando
+- `restart: unless-stopped` no `docker-compose.yml`, e o texto que explica por
+  que `unless-stopped` e não `always`
 
 ### Arquivos de instrução para a própria IA
 
@@ -112,19 +118,19 @@ gerado sem verificação"*. Esta seção registra o estado real da verificação
       com `docker pull`; o OpenGrep é compilado pelo `Dockerfile` do repo
 - [x] **Build vermelho e build verde reproduzidos** no GitHub Actions, com o
       deploy na VM Azure bloqueado no vermelho e executado no verde
-- [x] **Segundo erro da IA, encontrado ao conferir o log:** o filtro `jq` do
+- [x] **Erro da IA — severidade lida no lugar errado no SARIF.** O filtro `jq` do
       gate usava `select(.level=="error")` nos resultados do SARIF. Nenhum
       resultado do OpenGrep carrega esse campo — a severidade fica na definição
       da regra e o resultado herda. O gate reportava `OpenGrep: 0` com 58
       achados no relatório, e ficava vermelho só por causa do Nikto, o que
       mascarava o problema. Corrigido montando o mapa `ruleId → level`;
       validado contra o SARIF real: 25 `error`
-- [x] **Terceiro erro, de orquestração:** o job do Nikto subia o DVWA com o
+- [x] **Erro de orquestração — remediação desfeita antes do scan.** O job do Nikto subia o DVWA com o
       override de hardening mas rodava `docker compose run nikto` sem ele.
       Como `nikto` tem `depends_on: dvwa`, o Compose recriava o DVWA sem o
       volume, desfazendo a remediação antes do scan. A correção existia e
       estava certa — testada fora do CI —, mas era desfeita pela orquestração
-- [x] **Quarto erro, de estado implícito:** renomear o diretório de deploy na
+- [x] **Erro de estado implícito — projeto Compose vindo do nome da pasta.** Renomear o diretório de deploy na
       VM quebrou o `docker compose up` com `container name already in use`. O
       nome do projeto Compose vinha do nome da pasta. Corrigido com `name: cp1`
       no `docker-compose.yml`
@@ -136,7 +142,7 @@ gerado sem verificação"*. Esta seção registra o estado real da verificação
 - [x] **As 4 ferramentas executadas**, cada uma com relatório versionado em
       `reports/` e tempo medido em `reports/tempos.txt`. O Snyk foi o último:
       371 achados (170 HIGH) em 341 dependências do NodeGoat, 10 s
-- [x] **Quinto erro da IA, e o mais instrutivo:** o `scripts/rodar-sca-iac.sh`
+- [x] **Erro da IA — alvo montado no diretório errado do container.** O `scripts/rodar-sca-iac.sh`
       montava o NodeGoat em `/project`, mas a imagem `snyk/snyk:node` tem
       `WORKDIR /app` e o `snyk test` analisa o diretório atual. O Snyk varria
       um diretório vazio e respondia "Could not detect supported target files
@@ -146,7 +152,6 @@ gerado sem verificação"*. Esta seção registra o estado real da verificação
       dois: a montagem e a mensagem, que agora pede para ler o campo `error` e
       explica o que cada um significa
 
-### 4.2 Pendente — a executar antes da entrega
 
 - [x] **Contagens reconferidas nos relatórios versionados** (2026-09-12):
       OpenGrep 58 achados / 25 `error` / 2 `error` em `vulnerabilities/sqli/`;
@@ -154,7 +159,7 @@ gerado sem verificação"*. Esta seção registra o estado real da verificação
       `TOTAL=4` no build vermelho, e não os `28` citados no histórico do
       `LAB.md` — os `28` são de antes de o escopo do gate ser restringido.
       Recontável com `python3 scripts/resumir-achados.py`
-- [x] **Quinto erro, encontrado nessa revisão:** o filtro `jq` do gate de DAST
+- [x] **Erro do gate de DAST — filtro cego a caminhos.** O filtro `jq` do gate de DAST
       testava apenas o campo `msg`. Na Nikto 2.1.5 a mensagem repetia o
       caminho, então os padrões de caminho da lista `NIKTO_HIGH` casavam por
       acidente; na 2.5.0, que gerou o relatório versionado, o caminho ficou só
@@ -166,7 +171,7 @@ gerado sem verificação"*. Esta seção registra o estado real da verificação
       `0.0.0.0:`, outro IP da máquina, porta pública acrescentada ao lado do
       bind local): a versão anterior deixava passar a porta acrescentada, a
       atual reprova todas
-- [x] **Sexto erro, encontrado ao rodar de verdade:** o `patches/fix-sqli.php`
+- [x] **Erro do patch — quebrava a página na imagem do laboratório.** O `patches/fix-sqli.php`
       gerado com apoio de IA usava `$_DVWA['SQLI_DB']` e as constantes
       `MYSQL`/`SQLITE`, que só existem no DVWA **atual** — a imagem do
       laboratório roda o **DVWA 1.9**, que não as tem. Aplicado no container,
@@ -190,6 +195,26 @@ gerado sem verificação"*. Esta seção registra o estado real da verificação
       mysqlnd e a função **existe**. O `bind_result` ficou porque funciona em
       qualquer build e não custa nada, mas o motivo registrado no arquivo foi
       corrigido — a justificativa original era uma suposição, não um fato
+
+- [x] **Reprodutibilidade testada do zero**, num clone limpo em máquina que não
+      é a de nenhum integrante. O SARIF gerado saiu **byte a byte idêntico** ao
+      versionado (1.123.362 bytes): a versão fixada do OpenGrep e o clone raso
+      do alvo produzem o mesmo relatório em qualquer máquina
+- [x] **Caminho de quem erra também testado.** Pulando o passo 0, o Docker cria
+      `targets/` como root ao montar o bind, e o clone seguinte falha com
+      "Permission denied". Pior: a primeira correção mandava remover só
+      `targets/dvwa`, e o diretório **pai** root-owned continuava bloqueando.
+      Agora o script detecta qual nível não é gravável e monta o comando certo
+- [x] **Erro da IA — comando publicado sem ter sido executado.** O passo 3 do
+      `README.md` usava `grep -B2`, que pressupõe arquivo com quebras de linha.
+      O SARIF do OpenGrep é JSON minificado, **uma linha só** — o comando
+      devolvia vazio. Só apareceu porque foi rodado antes de publicar. A versão
+      atual foi validada contra o relatório real e devolve as linhas 10 e 31
+- [x] **Todos os comandos do `README.md` executados** antes de publicar, e as
+      saídas do arquivo substituídas pelas saídas reais
+
+### 4.2 Pendente — a executar antes da entrega
+
 - [ ] **Reescrever as três análises de achado do `LAB.md` com as palavras do
       grupo.** Os dados são reais (vieram dos relatórios em `reports/`), mas a
       redação saiu da IA. O enunciado avalia análise crítica **própria**, e

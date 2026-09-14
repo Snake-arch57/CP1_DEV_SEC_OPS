@@ -6,7 +6,6 @@ Exigido pelo requisito 5 da seção 5.3 e pelo Anexo B do enunciado.
 |---|---|
 | [`build-vermelho.png`](build-vermelho.png) | gate reprovando e **bloqueando o deploy** |
 | [`build-verde.png`](build-verde.png) | gate aprovando e **liberando o deploy** |
-| [`roteiro-plano-b.md`](roteiro-plano-b.md) | roteiro do vídeo de plano B: o que gravar, em que ordem, com os tempos |
 | [`execucao-local-2026-09-12.md`](execucao-local-2026-09-12.md) | execução local completa: o gate nas duas pontas, tempos medidos das ferramentas, e a prova de que as duas correções funcionam na aplicação no ar |
 
 ---

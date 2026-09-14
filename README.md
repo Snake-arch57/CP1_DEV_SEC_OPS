@@ -188,17 +188,23 @@ grep -oE '.{0,40}sqli/source/low\.php.{0,400}' reports/opengrep-dvwa.sarif \
   | head -1 | tr ',' '\n' | grep -E 'uri|endLine|text'
 ```
 
-Saída real, recortada:
+Saída real (as duas últimas linhas vêm longas; aqui estão quebradas para
+caber, e o `...` marca onde foram cortadas):
 
 ```
-"uri":"/src/vulnerabilities/sqli/source/low.php"
-"uriBaseId":"%SRCROOT%"
+tLocation":{"uri":"/src/vulnerabilities/sqli/source/low.php"
+"uriBaseId":"%SRCROOT%"}
 "endLine":10
 "snippet":{"text":"\t\t\t$query  = \"SELECT first_name...
-"message":{"text":"User data flows into this manually-constructed SQL
- string. User data can be safely inserted into SQL strings using prepared
- statements or an object-relational mapper (ORM)...
+"message":{"text":"User data flows into this manually-constructed SQL string.
+ User data can be safely inserted into SQL strings using prepared statements
+ or an object-relational mapper (ORM). Ma...
 ```
+
+> O `tLocation":{` truncado na primeira linha não é erro: o `grep -oE` recorta
+> 40 caracteres antes do trecho procurado, e o corte cai no meio de
+> `physicalLocation`. O SARIF é uma linha só — qualquer extração por `grep`
+> corta em algum lugar.
 
 A mensagem fala em **fluxo** do dado do usuário até a string da query. É essa
 frase que distingue *taint analysis* de busca por padrão: a regra rastreia o

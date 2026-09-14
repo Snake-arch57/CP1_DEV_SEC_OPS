@@ -233,7 +233,7 @@ docker compose run --rm nikto \
   -Format txt -o /reports/nikto-dvwa.txt
 ```
 
-Procure na saída, e guarde para a pergunta 2:
+Procure na saída:
 
 ```
 + /config/: Directory indexing found.

@@ -254,7 +254,7 @@ Nada para rodar: as duas execuções já estão no Actions, prontas para compara
 No vermelho, repare que `config-do-deploy` e `deploy` aparecem **pulados**, não
 como falha: o deploy não quebrou, foi bloqueado pelo gate.
 
-### Passo 7 — encerrar
+### Passo 6 — encerrar
 
 ```bash
 docker compose down -v

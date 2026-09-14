@@ -8,6 +8,28 @@ Exigido pelo requisito 5 da seção 5.3 e pelo Anexo B do enunciado.
 | [`build-verde.png`](build-verde.png) | gate aprovando e **liberando o deploy** |
 | [`execucao-local-2026-09-12.md`](execucao-local-2026-09-12.md) | execução local completa: o gate nas duas pontas, tempos medidos das ferramentas, e a prova de que as duas correções funcionam na aplicação no ar |
 
+
+## Plano B — requisito 6 da seção 5.3
+
+O vídeo da execução completa do laboratório **foi gravado e entregue pelo
+Teams**, junto com os demais artefatos. Não está versionado aqui por causa do
+tamanho.
+
+O que ele cobre, na ordem do [`../README.md`](../README.md):
+
+| Cena | Conteúdo |
+|---|---|
+| Passo 0 | preparação: imagens, build do OpenGrep e clone do alvo |
+| Passo 1 | DVWA no ar em `127.0.0.1:8081` |
+| Passo 2 | OpenGrep — `Ran 126 rules on 250 files: 58 findings` |
+| Passo 3 | o SQL Injection localizado em `sqli/source/low.php`, linhas 10 e 31 |
+| Passo 4 | Nikto — `Directory indexing` em `/config/` e `/docs/` |
+| Passo 5 | gate vermelho bloqueando e verde liberando o deploy |
+| Passo 7 | `docker compose down -v` |
+
+Serve para o caso de falha de rede ou de ambiente no dia da apresentação: o
+grupo passa a gravação e a demonstração continua.
+
 ---
 
 ## Build vermelho

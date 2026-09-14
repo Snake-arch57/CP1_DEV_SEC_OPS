@@ -863,13 +863,17 @@ correspondente já foi atualizado com o output real — os dois andam juntos:
       e tempo medido em `reports/tempos.txt`. O Snyk fechou a lista: 371
       achados (170 HIGH) em 341 dependências do NodeGoat, 10 s
 
+### Pronto (continuação)
+
+- [x] **Vídeo de plano B** gravado e entregue pelo Teams — conteúdo
+      registrado em `evidencias/README.md` (requisito 6 da seção 5.3)
+
 ### Falta — em ordem de peso na nota
 
 - [ ] **Documento de pesquisa** (25 pts) — 15 a 25 páginas, ABNT, mínimo de 10
       fontes com 4 primárias, roteiro da seção 6 respondido para as 4
       ferramentas
 - [ ] **Apresentação** (20 pts) — `.pptx` e `.pdf`, 20 a 30 slides
-- [ ] **Vídeo de plano B**, 5 a 8 minutos (3 pts) — requisito 6 da seção 5.3
 - [ ] Apresentação ensaiada e cronometrada dentro de 30 min (lab em 12)
 - [ ] Repositório publicado com a antecedência confirmada (24h ou 48h — ver
       nota no topo deste arquivo)

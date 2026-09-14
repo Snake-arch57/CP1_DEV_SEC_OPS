@@ -221,7 +221,7 @@ gerado sem verificação"*. Esta seção registra o estado real da verificação
 
 ### 4.2 Pendente — a executar antes da entrega
 
-- [ ] Gravar o vídeo de plano B (5 a 8 minutos) — requisito 6 da seção 5.3
+- [x] Vídeo de plano B gravado e entregue pelo Teams
 
 ### 4.3 Decidido não fazer
 
